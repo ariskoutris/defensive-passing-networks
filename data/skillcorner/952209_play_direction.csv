@@ -1,0 +1,5 @@
+match_id,team_name,half,play_direction
+952209,France,1,BOTTOM_TO_TOP
+952209,Netherland,1,TOP_TO_BOTTOM
+952209,France,2,TOP_TO_BOTTOM
+952209,Netherland,2,BOTTOM_TO_TOP
