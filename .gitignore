@@ -18,6 +18,17 @@ venv.bak/
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints
 
+# Data science specific files
+*.csv
+*.json
+*.jsonl
+*.h5
+*.hdf5
+*.db
+*.sqlite
+*.pkl
+*.joblib
+
 # Logs
 *.log
 
