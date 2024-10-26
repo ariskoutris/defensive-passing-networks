@@ -3,6 +3,10 @@
 .AppleDouble
 .LSOverride
 
+
+# my local data folder
+data/data_euro/
+
 # Python specific files
 __pycache__/
 *.py[cod]
