@@ -1,13 +1,11 @@
 import pandas as pd
 from utils import *
+   
     
 # Set Wyscout and Skillcorner IDs
 WYSCOUT_ID = 5414111
 SKILLCORNER_ID = 952209
 
-# Set path to zip files. Set to None if files are already unzipped.
-ZIP_PATH = '../../soccer-analytics/data/'
-ZIP_PATH = None
 
 # Set path to save the resulting dataframe. Otherwise, set to None.
 SAVE_PATH = None
@@ -18,16 +16,10 @@ SKILLCORNER_PATH = DATA_PATH + 'skillcorner/'
 XT_PLOT_PATH = DATA_PATH + 'smoothed_xt.csv'
 MATCH_IDS_PATH = DATA_PATH + 'matchids.csv'
 
-
-# Load Data
-if ZIP_PATH:
-    unzip_all_files_in_dir(ZIP_PATH + 'wyscout/', WYSCOUT_PATH)
-    unzip_all_files_in_dir(ZIP_PATH + 'skillcorner/', SKILLCORNER_PATH)
-
-# wyscout
+# Load Wyscout Data
 wyscout_data = wyscout_to_df(WYSCOUT_PATH + str(WYSCOUT_ID) + ".json")
 
-# skillcorner
+# Load SkillCorner Data
 metadata = pd.read_csv(SKILLCORNER_PATH + str(SKILLCORNER_ID) + "_metadata.csv")
 tracking_df = pd.read_csv(SKILLCORNER_PATH + str(SKILLCORNER_ID) + "_tracking.csv")
 lineup_df = pd.read_csv(SKILLCORNER_PATH + str(SKILLCORNER_ID) + "_lineup.csv")
@@ -52,6 +44,8 @@ passes_df['pass.endLocation.y'] = passes_df['pass.endLocation.y'].astype(int)
 
 
 # Compute ΔxT
+# TODO: Compute ΔxT using denormalized pitch coordinates.
+# TODO: Compute ΔxT taking into account team's goal direction.
 xt_table = pd.read_csv(XT_PLOT_PATH)
 
 cell_width = 100 / xt_table.shape[1]
@@ -80,7 +74,7 @@ passes_df['quantizedTimestamp'] = passes_df['matchTimestamp'].apply(round_to_ten
 passes_df.set_index(['quantizedTimestamp', 'matchPeriod'], inplace=True)
 passes_df.rename_axis(index={'quantizedTimestamp': 'timestamp', 'matchPeriod': 'period'}, inplace=True)
 
-passes_df = passes_df.join(tracking_df, how='inner')
+passes_df = passes_df.join(tracking_df, how='inner', validate='one_to_many')
 passes_df.drop(columns=['match_id'], inplace=True)
 passes_df['object_id'] = passes_df['object_id'].astype(int)
 
@@ -90,14 +84,14 @@ passes_df['object_id'] = passes_df['object_id'].astype(int)
 pitch_length = metadata['pitch_length'].values[0]
 pitch_width = metadata['pitch_width'].values[0]
 
-def normalize_coordinates(row):
-    x, y = row['x'], row['y']
-    new_x = (-x + pitch_length/2) / pitch_length * 100
-    new_y = (y + pitch_width/2) / pitch_width * 100
-    return new_x, new_y
-
-df = passes_df.apply(lambda row: normalize_coordinates(row), axis=1)
-passes_df[['x_norm', 'y_norm']] = pd.DataFrame(df.tolist(), index=df.index)
+start_locations = passes_df.apply(
+    lambda row: wyscout_to_pitch(row['location.x'], row['location.y'], pitch_length, pitch_width), 
+    axis=1)
+end_locations = passes_df.apply(
+    lambda row: wyscout_to_pitch(row['pass.endLocation.x'], row['pass.endLocation.y'], pitch_length, pitch_width), 
+    axis=1)
+passes_df[['location.x', 'location.y']] = start_locations.apply(pd.Series)
+passes_df[['pass.endLocation.x', 'pass.endLocation.y']] = end_locations.apply(pd.Series)
 
 
 

@@ -1,11 +1,9 @@
 from datetime import datetime, timedelta
 from pathlib import Path
 import pandas as pd
-import zipfile
 import time
 import json
 import enum
-
 
 
 # You can adjust the match_id according to your assigned task.
@@ -14,29 +12,19 @@ match_id = 952209
 #############################################
 
 
-
 DATA_PATH = '../data/'
 SKILLCORNER_RAW_PATH = DATA_PATH + 'skillcorner_raw/'
-SKILLCORNER_CSV_PATH = DATA_PATH + 'skillcorner/'
+SKILLCORNER_PARSED_PATH = DATA_PATH + 'skillcorner/'
 
 # Define the directories
 input_dir = Path(SKILLCORNER_RAW_PATH)
 
 # data_dir is where the processed raw data will be stored in
-data_dir = Path(SKILLCORNER_CSV_PATH)
+data_dir = Path(SKILLCORNER_PARSED_PATH)
 
 # Create the data_dir if it does not exist
 if not data_dir.exists():
     data_dir.mkdir()
-
-# skillcorner zip file path
-zip_file = input_dir / f"{match_id}.zip"
-
-unzip = False
-
-if unzip:
-    with zipfile.ZipFile(zip_file, 'r') as zip_ref:
-        zip_ref.extractall(input_dir)
 
 # match metadata and tracking data file paths
 metadata_file = input_dir / f"{match_id}.jsonl"
