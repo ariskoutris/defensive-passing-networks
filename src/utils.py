@@ -145,6 +145,7 @@ def wyscout_to_pitch(x, y, pitch_length=105, pitch_width=68):
     else:  # x >= 94
         new_x = pitch_length - 5.5 * (100 - x) / 6
 
+    new_x = -(new_x - pitch_length / 2)
     return new_x, new_y
 
 
