@@ -8,8 +8,6 @@ from utils import *
 
 pd.set_option('display.max_columns', None)
 
-from pathlib import Path
-
 
 # Set path to save the resulting dataframe. Otherwise, set to None.
 SAVE_PATH = '../data/'
