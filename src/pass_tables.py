@@ -8,7 +8,7 @@ SKILLCORNER_ID = 952209
 
 
 # Set path to save the resulting dataframe. Otherwise, set to None.
-SAVE_PATH = None
+SAVE_PATH = '../data/'
 
 DATA_PATH = '../data/'
 WYSCOUT_PATH = DATA_PATH + 'wyscout/'
@@ -75,8 +75,9 @@ passes_df.set_index(['quantizedTimestamp', 'matchPeriod'], inplace=True)
 passes_df.rename_axis(index={'quantizedTimestamp': 'timestamp', 'matchPeriod': 'period'}, inplace=True)
 
 passes_df = passes_df.join(tracking_df, how='inner', validate='one_to_many')
-passes_df.drop(columns=['match_id'], inplace=True)
+passes_df.drop(columns=['match_id', 'matchTimestamp'], inplace=True)
 passes_df['object_id'] = passes_df['object_id'].astype(int)
+passes_df.reset_index(inplace=True)
 
 
 
@@ -101,6 +102,8 @@ passes_df = passes_df.merge(lineup_df, left_on='object_id', right_on='player_id'
 columns_to_prefix = ['object_id', 'x', 'y', 'z', 'x_norm', 'y_norm', 'team_name', 'player_id' ,'player_first_name', 'player_last_name']
 prefix = 'tracking.'
 passes_df.rename(columns={col: prefix + col for col in columns_to_prefix}, inplace=True)
+
+
 
 if SAVE_PATH:
     passes_df.to_pickle(SAVE_PATH + 'passes_df.pkl')
