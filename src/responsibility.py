@@ -42,6 +42,7 @@ passes_df.drop(columns=['player_id_wy_x', 'player_id_wy_y'] , inplace=True)
 
 
 # Add information about the tracked object
+# TODO: Team names are not consistent between Wyscout and Skillcorner. Use team id instead or find a way to map them.
 passes_df['tracking.is_teammate'] = (passes_df['team.name'] == passes_df['tracking.team_name'])
 passes_df['tracking.is_self'] = (passes_df['player.id.skillcorner'] == passes_df['tracking.player.id.skillcorner'])
 
