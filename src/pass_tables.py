@@ -91,6 +91,8 @@ start_locations = passes_df.apply(
 end_locations = passes_df.apply(
     lambda row: wyscout_to_pitch(row['pass.endLocation.x'], row['pass.endLocation.y'], pitch_length, pitch_width), 
     axis=1)
+passes_df[['location.x.wyscout', 'location.y.wyscout']] = passes_df[['location.x', 'location.y']].copy()
+passes_df[['pass.endLocation.x.wyscout', 'pass.endLocation.y.wyscout']] = passes_df[['pass.endLocation.x', 'pass.endLocation.y']].copy()
 passes_df[['location.x', 'location.y']] = start_locations.apply(pd.Series)
 passes_df[['pass.endLocation.x', 'pass.endLocation.y']] = end_locations.apply(pd.Series)
 
