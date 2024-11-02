@@ -78,6 +78,7 @@ def get_play_direction(row):
 passes_df['play_direction'] = passes_df.apply(get_play_direction, axis=1)
 
 
+
 # Match skillcorner tracking data with wyscout pass event Data
 tracking_df.drop(columns=['frame_id', 'extrapolated'], inplace=True)   
 
@@ -129,8 +130,14 @@ def is_teammate(row):
     return player_team == tracking_player_team
 
 
-passes_df['is_self'] = passes_df.apply(is_self, axis=1)
-passes_df['is_teammate'] = passes_df.apply(is_teammate, axis=1)
+passes_df['tracking.is_self'] = passes_df.apply(is_self, axis=1)
+passes_df['tracking.is_teammate'] = passes_df.apply(is_teammate, axis=1)
+
+
+
+# Defender Responsibility
+passes_df['responsibility'] = passes_df.apply(responsibility, axis=1, pass_length_factor=1)
+passes_df['responsibility'] = np.where(passes_df['tracking.is_teammate'], 0, passes_df['responsibility'])
 
 
 
