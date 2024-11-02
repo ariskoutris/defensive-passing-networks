@@ -35,8 +35,7 @@ def unzip_all_files_in_dir(directory, target_directory):
         if file.endswith('.zip'):
             with zipfile.ZipFile(directory + file, 'r') as zip_ref:
                 zip_ref.extractall(target_directory)
-
-def responsibility(row, max_distance=10, pass_length_factor=1.0, end_location_factor=0.5):
+def responsibility(row, max_distance=10, pass_length_factor=1.0, end_location_factor=0.5, start_location_factor=0.5):
     
     start_x = row['location.x']
     start_y = row['location.y']
@@ -72,30 +71,24 @@ def responsibility(row, max_distance=10, pass_length_factor=1.0, end_location_fa
     
     # Calculate distance from the player to the end location of the pass
     distance_to_end_location = np.linalg.norm(np.array([player_x, player_y]) - np.array([end_x, end_y]))
+    distance_to_start_location = np.linalg.norm(np.array([player_x, player_y]) - np.array([start_x, start_y]))
+
     
     # Calculate responsibility with pass length and distance to pass scaling
     if distance_to_pass < max_distance and row['tracking.object_id'] != -1:
-        """
-        # Apply scaling based on the distance to the pass and pass length
         raw_responsibility = (1 - (distance_to_pass / max_distance)) * np.power(1 + pass_length_factor, pass_length)
         
         # Normalize the responsibility to be between 0 and 1
         max_possible_responsibility = np.power(1 + pass_length_factor, pass_length)
         responsibility_score = raw_responsibility / max_possible_responsibility
         
-        # Adjust the responsibility based on the distance to the end location
+        start_location_adjustment = max(0, 1 - (start_location_factor * (distance_to_start_location / max_distance)))
         
-        proximity_to_end = 1 - (distance_to_end_location / max_distance)
-        end_location_adjustment = (1 + end_location_factor * proximity_to_end)
-        responsibility_score *= end_location_adjustment
-        """
-        raw_responsibility = (1 - (distance_to_pass / max_distance)) * np.power(1 + pass_length_factor, pass_length)
+        normalized_adjustment = 1 + (start_location_adjustment - 1) * start_location_factor
         
-        # Normalize the responsibility to be between 0 and 1
-        max_possible_responsibility = np.power(1 + pass_length_factor, pass_length)
-        responsibility_score = raw_responsibility / max_possible_responsibility
-        
-        
+        # Apply normalized adjustment
+        responsibility_score *= normalized_adjustment
+
     else:
         # If the player is too far, they get no responsibility
         responsibility_score = 0
