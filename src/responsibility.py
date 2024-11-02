@@ -23,10 +23,7 @@ wyscout2skillcorner = pd.read_csv(WYSCOUT_TO_SKILLCORNER).drop(columns='id')
 passes_df.rename(columns={'player.id': 'player.id.wyscout', 'pass.recipient.id': 'pass.recipient.id.wyscout', 'tracking.player_id': 'tracking.player.id.skillcorner'}, inplace=True)
 passes_df.drop(columns=['team.id', 'opponentTeam.id'], inplace=True)
 
-
-# TODO: An id value of 0 doesn't map to any player. Look into this.
 passes_df = passes_df[passes_df['pass.recipient.id.wyscout'] != 0]
-
 
 # Map Wyscout IDs to Skillcorner IDs
 passes_df = passes_df.merge(wyscout2skillcorner[['player_id_wy', 'player_id_sk']],
