@@ -1,6 +1,7 @@
 import pandas as pd
 from utils import *
-   
+
+pd.set_option('display.max_columns', None)
     
 # Set Wyscout and Skillcorner IDs
 WYSCOUT_ID = 5414111
@@ -13,7 +14,7 @@ SAVE_PATH = '../data/'
 DATA_PATH = '../data/'
 WYSCOUT_PATH = DATA_PATH + 'wyscout/'
 SKILLCORNER_PATH = DATA_PATH + 'skillcorner/'
-XT_PLOT_PATH = DATA_PATH + 'xt_plot_worldcup.csv'
+XT_PLOT_PATH = DATA_PATH + 'smoothed_xt.csv'
 WYSCOUT_TO_SKILLCORNER = DATA_PATH + 'wyscout2skillcorner.csv'
 
 
@@ -40,13 +41,13 @@ if accurate_only:
 # Filter out passes with invalid recipient id
 passes_df = passes_df[passes_df['pass.recipient.id'] != 0]
 
-cols = ['matchTimestamp', 'matchPeriod', 'player.id', 'pass.recipient.id', 'location.x', 'location.y', 'pass.endLocation.x', 'pass.endLocation.y']
+cols = ['videoTimestamp', 'matchPeriod', 'player.id', 'pass.recipient.id', 'location.x', 'location.y', 'pass.endLocation.x', 'pass.endLocation.y']
 passes_df = passes_df.loc[:,cols]
 passes_df['matchPeriod'] = passes_df['matchPeriod'].apply(lambda x: int(x.split('H')[0]))
+passes_df['videoTimestamp'] = passes_df['videoTimestamp'].astype(float)
 passes_df['pass.recipient.id'] = passes_df['pass.recipient.id'].astype(int)
 passes_df['pass.endLocation.x'] = passes_df['pass.endLocation.x'].astype(int)
 passes_df['pass.endLocation.y'] = passes_df['pass.endLocation.y'].astype(int)
-
 
 
 # Map Wyscout IDs to SkillCorner IDs
@@ -61,7 +62,7 @@ passes_df = passes_df.merge(wyscout2skillcorner[['player_id_sk', 'player_id_wy']
 passes_df.drop(columns=['player_id_wy'], inplace=True)
 passes_df.rename(columns={'player_id_sk': 'pass.recipient.id.skillcorner'}, inplace=True)
 
-cols = ['matchTimestamp', 'matchPeriod', 'player.id.wyscout', 'player.id.skillcorner', 'pass.recipient.id.wyscout', 'pass.recipient.id.skillcorner', 'location.x', 'location.y', 'pass.endLocation.x', 'pass.endLocation.y']
+cols = ['videoTimestamp', 'matchPeriod', 'player.id.wyscout', 'player.id.skillcorner', 'pass.recipient.id.wyscout', 'pass.recipient.id.skillcorner', 'location.x', 'location.y', 'pass.endLocation.x', 'pass.endLocation.y']
 passes_df = passes_df.loc[:,cols]
 
 
@@ -74,31 +75,64 @@ def get_play_direction(row):
     team_name = player_team_dict[row['player.id.skillcorner']]
     return play_direction_dict[(team_name, row['matchPeriod'])]
 
-
 passes_df['play_direction'] = passes_df.apply(get_play_direction, axis=1)
 
 
 
-# Match skillcorner tracking data with wyscout pass event Data
-tracking_df.drop(columns=['frame_id', 'extrapolated'], inplace=True)   
+# Compute ΔxT
+xt_table = pd.read_csv(XT_PLOT_PATH)
 
-tracking_df['timestamp'] = tracking_df.apply(standardize_timestamp, axis=1)
-tracking_df.set_index(['timestamp', 'half'], inplace=True)
-tracking_df.rename_axis(index={'timestamp': 'timestamp', 'half': 'period'}, inplace=True)
+cell_width = 100 / xt_table.shape[1]
+cell_height = 100 / xt_table.shape[0]
 
-passes_df['quantizedTimestamp'] = passes_df['matchTimestamp'].apply(round_to_tenth_of_second)
-passes_df.set_index(['quantizedTimestamp', 'matchPeriod'], inplace=True)
-passes_df.rename_axis(index={'quantizedTimestamp': 'timestamp', 'matchPeriod': 'period'}, inplace=True)
+def get_xt_index(x, y, direction):
+    x_adjusted = x if direction == 1 else 100 - x
+    y_adjusted = y if direction == 1 else 100 - y
+    x_index = int(min(x_adjusted // cell_width, xt_table.shape[1] - 1))
+    y_index = int(min(y_adjusted // cell_height, xt_table.shape[0] - 1))
+    return x_index, y_index
+
+def get_xt_value(x, y, direction):
+    x_index, y_index = get_xt_index(x, y, direction)
+    return xt_table.iat[y_index, x_index]
+
+passes_df['start_xt_right'] = passes_df.apply(lambda row: get_xt_value(row['location.x'], row['location.y'], 1), axis=1)
+passes_df['end_xt_right'] = passes_df.apply(lambda row: get_xt_value(row['pass.endLocation.x'], row['pass.endLocation.y'], 1), axis=1)
+passes_df['start_xt_left'] = passes_df.apply(lambda row: get_xt_value(row['location.x'], row['location.y'], -1), axis=1)
+passes_df['end_xt_left'] = passes_df.apply(lambda row: get_xt_value(row['pass.endLocation.x'], row['pass.endLocation.y'], -1), axis=1)
+
+passes_df['dxt_right'] = passes_df['end_xt_right'] - passes_df['start_xt_right']
+passes_df['dxt_left'] = passes_df['end_xt_left'] - passes_df['start_xt_left']
+
+passes_df['dxt'] = passes_df.apply(lambda row: row['dxt_left'] if row['play_direction'] == 'TOP_TO_BOTTOM' else row['dxt_right'], axis=1)
+
+columns_to_drop = ['start_xt_right', 'start_xt_left', 'end_xt_right', 'end_xt_left', 'dxt_right', 'dxt_left']
+passes_df = passes_df.drop(columns=columns_to_drop)
+
+
+
+# Sync skillcorner tracking data with wyscout pass events
+framerate = metadata.loc[0,'fps']
+
+def videotime_to_frame(videotime):
+    return int(videotime * framerate)
+
+passes_df.insert(1, 'frame', passes_df['videoTimestamp'].apply(videotime_to_frame))
+passes_df.drop(columns='videoTimestamp', inplace=True)
+
+tracking_df.rename(columns={'frame_id': 'frame'}, inplace=True)
+tracking_df.set_index('frame', inplace=True)
+passes_df.set_index('frame', inplace=True)
 
 passes_df = passes_df.join(tracking_df, how='inner', validate='one_to_many')
-passes_df.drop(columns=['match_id', 'matchTimestamp'], inplace=True)
-passes_df['object_id'] = passes_df['object_id'].astype(int)
+
+columns_to_drop = ['match_id', 'half', 'timestamp', 'extrapolated']
+existing_columns_to_drop = [col for col in columns_to_drop if col in passes_df.columns]
+passes_df.drop(columns=existing_columns_to_drop, inplace=True)
 
 columns_to_prefix = ['object_id', 'x', 'y', 'z']
 prefix = 'tracking.'
 passes_df.rename(columns={col: prefix + col for col in columns_to_prefix}, inplace=True)
-
-passes_df.reset_index(inplace=True)
 
 
 
@@ -129,7 +163,6 @@ def is_teammate(row):
     tracking_player_team = player_team_dict[row['tracking.object_id']]
     return player_team == tracking_player_team
 
-
 passes_df['tracking.is_self'] = passes_df.apply(is_self, axis=1)
 passes_df['tracking.is_teammate'] = passes_df.apply(is_teammate, axis=1)
 
@@ -141,28 +174,8 @@ passes_df['responsibility'] = np.where(passes_df['tracking.is_teammate'], 0, pas
 
 
 
-# Compute ΔxT
-# TODO: Compute ΔxT using denormalized pitch coordinates.
-# TODO: Compute ΔxT taking into account team's goal direction.
-xt_table = pd.read_csv(XT_PLOT_PATH)
-
-cell_width = 100 / xt_table.shape[1]
-cell_height = 100 / xt_table.shape[0]
-
-def get_xt_index(x, y):
-    x_index = min(int(x // cell_width), xt_table.shape[1] - 1)
-    y_index = min(int(y // cell_height), xt_table.shape[0] - 1)
-    return x_index, y_index
-
-start_xts = passes_df.apply(lambda row: xt_table.iat[get_xt_index(row['location.x'], row['location.y'])[1], 
-                                                           get_xt_index(row['location.x'], row['location.y'])[0]], axis=1)
-end_xts = passes_df.apply(lambda row: xt_table.iat[get_xt_index(row['pass.endLocation.x'], row['pass.endLocation.y'])[1], 
-                                                         get_xt_index(row['pass.endLocation.x'], row['pass.endLocation.y'])[0]], axis=1)
-passes_df.loc[:,'dxt'] = end_xts - start_xts
-
-
 if SAVE_PATH:
     passes_df.to_pickle(SAVE_PATH + 'passes_df.pkl')
 
 with pd.option_context('display.max_columns', None):
-    print(passes_df.head())
+    print(passes_df.sample(5))
