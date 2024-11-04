@@ -1,7 +1,6 @@
 import pandas as pd
 from utils import *
-
-pd.set_option('display.max_columns', None)
+    
     
 # Set Wyscout and Skillcorner IDs
 WYSCOUT_ID = 5414111
@@ -9,7 +8,8 @@ SKILLCORNER_ID = 952209
 
 
 # Set path to save the resulting dataframe. Otherwise, set to None.
-SAVE_PATH = '../data/'
+SAVE_PATH = f'../data/networks/match_{SKILLCORNER_ID}/'
+os.makedirs(SAVE_PATH, exist_ok=True)
 
 DATA_PATH = '../data/'
 WYSCOUT_PATH = DATA_PATH + 'wyscout/'
@@ -176,6 +176,3 @@ passes_df['responsibility'] = np.where(passes_df['tracking.is_teammate'], 0, pas
 
 if SAVE_PATH:
     passes_df.to_pickle(SAVE_PATH + 'passes_df.pkl')
-
-with pd.option_context('display.max_columns', None):
-    print(passes_df.sample(5))
