@@ -54,15 +54,16 @@ passes_df['pass.endLocation.y'] = passes_df['pass.endLocation.y'].astype(int)
 wyscout2skillcorner = pd.read_csv(WYSCOUT_TO_SKILLCORNER).drop(columns='id')
 passes_df.rename(columns={'player.id': 'player.id.wyscout', 'pass.recipient.id': 'pass.recipient.id.wyscout'}, inplace=True)
 
-passes_df = passes_df.merge(wyscout2skillcorner[['player_id_sk', 'player_id_wy']], left_on='player.id.wyscout', right_on='player_id_wy', how='left')
+passes_df = passes_df.merge(wyscout2skillcorner[['player_id_sk', 'player_id_wy', 'team_name_sk']], left_on='player.id.wyscout', right_on='player_id_wy', how='left')
 passes_df.drop(columns=['player_id_wy'], inplace=True)
 passes_df.rename(columns={'player_id_sk': 'player.id.skillcorner'}, inplace=True)
+passes_df.rename(columns={'team_name_sk': 'team.name'}, inplace=True)
 
 passes_df = passes_df.merge(wyscout2skillcorner[['player_id_sk', 'player_id_wy']], left_on='pass.recipient.id.wyscout', right_on='player_id_wy', how='left')
 passes_df.drop(columns=['player_id_wy'], inplace=True)
 passes_df.rename(columns={'player_id_sk': 'pass.recipient.id.skillcorner'}, inplace=True)
 
-cols = ['videoTimestamp', 'matchPeriod', 'player.id.wyscout', 'player.id.skillcorner', 'pass.recipient.id.wyscout', 'pass.recipient.id.skillcorner', 'location.x', 'location.y', 'pass.endLocation.x', 'pass.endLocation.y']
+cols = ['videoTimestamp', 'matchPeriod', 'team.name', 'player.id.wyscout', 'player.id.skillcorner', 'pass.recipient.id.wyscout', 'pass.recipient.id.skillcorner', 'location.x', 'location.y', 'pass.endLocation.x', 'pass.endLocation.y']
 passes_df = passes_df.loc[:,cols]
 
 
