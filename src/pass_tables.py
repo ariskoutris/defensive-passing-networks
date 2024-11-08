@@ -86,29 +86,19 @@ xt_table = pd.read_csv(XT_PLOT_PATH)
 cell_width = 100 / xt_table.shape[1]
 cell_height = 100 / xt_table.shape[0]
 
-def get_xt_index(x, y, direction):
-    x_adjusted = x if direction == 1 else 100 - x
-    y_adjusted = y if direction == 1 else 100 - y
-    x_index = int(min(x_adjusted // cell_width, xt_table.shape[1] - 1))
-    y_index = int(min(y_adjusted // cell_height, xt_table.shape[0] - 1))
+def get_xt_index(x, y):
+    x_index = int(min(x // cell_width, xt_table.shape[1] - 1))
+    y_index = int(min(y // cell_height, xt_table.shape[0] - 1))
     return x_index, y_index
 
-def get_xt_value(x, y, direction):
-    x_index, y_index = get_xt_index(x, y, direction)
+def get_xt_value(x, y):
+    x_index, y_index = get_xt_index(x, y)
     return xt_table.iat[y_index, x_index]
 
-passes_df['start_xt_right'] = passes_df.apply(lambda row: get_xt_value(row['location.x'], row['location.y'], 1), axis=1)
-passes_df['end_xt_right'] = passes_df.apply(lambda row: get_xt_value(row['pass.endLocation.x'], row['pass.endLocation.y'], 1), axis=1)
-passes_df['start_xt_left'] = passes_df.apply(lambda row: get_xt_value(row['location.x'], row['location.y'], -1), axis=1)
-passes_df['end_xt_left'] = passes_df.apply(lambda row: get_xt_value(row['pass.endLocation.x'], row['pass.endLocation.y'], -1), axis=1)
+start_xt = passes_df.apply(lambda row: get_xt_value(row['location.x'], row['location.y']), axis=1)
+end_xt = passes_df.apply(lambda row: get_xt_value(row['pass.endLocation.x'], row['pass.endLocation.y']), axis=1)
 
-passes_df['dxt_right'] = passes_df['end_xt_right'] - passes_df['start_xt_right']
-passes_df['dxt_left'] = passes_df['end_xt_left'] - passes_df['start_xt_left']
-
-passes_df['dxt'] = passes_df.apply(lambda row: row['dxt_left'] if row['play_direction'] == 'TOP_TO_BOTTOM' else row['dxt_right'], axis=1)
-
-columns_to_drop = ['start_xt_right', 'start_xt_left', 'end_xt_right', 'end_xt_left', 'dxt_right', 'dxt_left']
-passes_df = passes_df.drop(columns=columns_to_drop)
+passes_df['dxt'] = end_xt - start_xt
 
 
 
