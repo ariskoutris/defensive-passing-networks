@@ -142,10 +142,10 @@ pitch_length = metadata['pitch_length'].values[0]
 pitch_width = metadata['pitch_width'].values[0]
 
 start_locations = passes_df.apply(
-    lambda row: wyscout_to_pitch(row['location.x'], row['location.y'], pitch_length, pitch_width), 
+    lambda row: wyscout_to_pitch(row['location.x'], row['location.y'], pitch_length, pitch_width, row['play_direction']), 
     axis=1)
 end_locations = passes_df.apply(
-    lambda row: wyscout_to_pitch(row['pass.endLocation.x'], row['pass.endLocation.y'], pitch_length, pitch_width), 
+    lambda row: wyscout_to_pitch(row['pass.endLocation.x'], row['pass.endLocation.y'], pitch_length, pitch_width, row['play_direction']), 
     axis=1)
 
 passes_df[['location.x', 'location.y']] = start_locations.apply(pd.Series)
@@ -172,8 +172,10 @@ passes_df['tracking.is_teammate'] = passes_df.apply(is_teammate, axis=1)
 # Defender Responsibility
 passes_df['responsibility'] = passes_df.apply(responsibility, axis=1, pass_length_factor=1)
 passes_df['responsibility'] = np.where(passes_df['tracking.is_teammate'], 0, passes_df['responsibility'])
-
-
+    
+location_mismatch = passes_df[passes_df['tracking.is_self']].apply(lambda row: np.linalg.norm([row['location.x'] - row['tracking.x'], row['location.y'] - row['tracking.y']],), axis=1)
+print('Wyscout to Skillcorner MSE Location Mismatch')
+print(location_mismatch.describe())
 
 if SAVE_PATH:
     passes_df.to_pickle(SAVE_PATH + 'passes_df.pkl')

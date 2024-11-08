@@ -97,7 +97,7 @@ def responsibility(row, max_distance=10, pass_length_factor=1.0, end_location_fa
         
     return responsibility_score
 
-def wyscout_to_pitch(x, y, pitch_length=105, pitch_width=68):
+def wyscout_to_pitch(x, y, pitch_length, pitch_width, direction):
     """
     Converts Wyscout coordinates (x, y) to pitch coordinates for an upward-playing direction.
 
@@ -138,31 +138,11 @@ def wyscout_to_pitch(x, y, pitch_length=105, pitch_width=68):
     else:  # x >= 94
         new_x = pitch_length - 5.5 * (100 - x) / 6
 
-    new_x = -(new_x - pitch_length / 2)
+    if direction == 'TOP_TO_BOTTOM':
+        new_x = pitch_length / 2 - new_x
+        new_y = new_y
+    elif direction == 'BOTTOM_TO_TOP':
+        new_x = new_x - pitch_length / 2
+        new_y = -new_y
+        
     return new_x, new_y
-
-
-
-# test_points = {
-#     "Top Left Corner": (0, 0),
-#     "Bottom Left Corner": (0, 100),
-#     "Top Right Corner": (100, 0),
-#     "Bottom Right Corner": (100, 100),
-#     "Center Circle": (50, 50),
-#     "Left Penalty Spot": (10, 50),
-#     "Right Penalty Spot": (90, 50),
-#     "Left Penalty Area Top": (6, 37),
-#     "Left Penalty Area Bottom": (6, 63),
-#     "Right Penalty Area Top": (94, 37),
-#     "Right Penalty Area Bottom": (94, 63)
-# }
-
-
-
-# import pandas as pd
-# converted_points = {name: wyscout_to_pitch(x, y) for name, (x, y) in test_points.items()}
-
-# converted_points_df = pd.DataFrame(converted_points).T
-# import ace_tools as tools; tools.display_dataframe_to_user(name="Converted Wyscout Points", dataframe=converted_points_df)
-
-# converted_points_df

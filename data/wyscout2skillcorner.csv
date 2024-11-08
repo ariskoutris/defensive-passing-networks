@@ -1,33 +1,33 @@
 id,player_id_sk,player_first_name_sk,player_last_name_sk,team_name_sk,player_id_wy,player_name_wy,team_id_wy,team_name_wy
- 0,         277,Adrien              ,Rabiot             ,France      ,      209117,A. Rabiot     ,      4418,France
- 1,         946,Antoine             ,Griezmann          ,France      ,        3682,A. Griezmann  ,      4418,France
- 2,       12218,Aurélien            ,Tchouaméni         ,France      ,      480145,A. Tchouaméni ,      4418,France
- 3,        2106,Daley               ,Blind              ,Netherland  ,          38,D. Blind      ,       664,Netherlands
- 4,        2548,Davy                ,Klaassen           ,Netherland  ,          56,D. Klaassen   ,       664,Netherlands
- 5,       11516,Dayot               ,Upamecano          ,France      ,      352988,D. Upamecano  ,      4418,France
- 6,       12654,Donyell             ,Malen              ,Netherland  ,      365446,D. Malen      ,       664,Netherlands
- 7,       22103,Eduardo             ,Camavinga          ,France      ,      599551,E. Camavinga  ,      4418,France
- 8,        3837,Georginio           ,Wijnaldum          ,Netherland  ,         116,G. Wijnaldum  ,       664,Netherlands
- 9,       16320,Ibrahima            ,Konaté             ,France      ,      393247,I. Konaté     ,      4418,France
-10,        4777,Jasper              ,Cillessen          ,Netherland  ,          33,J. Cillessen  ,       664,Netherlands
-11,       11630,Jules               ,Koundé             ,France      ,      410062,J. Koundé     ,      4418,France
-12,       24466,Jurriën             ,Timber Maduro      ,Netherland  ,      491458,J. Timber     ,       664,Netherlands
-13,       33512,Kenneth             ,Taylor             ,Netherland  ,      535816,K. Taylor     ,       664,Netherlands
-14,       20191,Khéphren            ,Thuram-Ulien       ,France      ,      532750,K. Thuram     ,      4418,France
-15,        5922,Kingsley            ,Coman              ,France      ,      231139,K. Coman      ,      4418,France
-16,        6028,Kylian              ,Mbappé Lottin      ,France      ,      353833,K. Mbappé     ,      4418,France
-17,       14407,Lutsharel           ,Geertruida         ,Netherland  ,      476361,L. Geertruida ,       664,Netherlands
-18,        7017,Marten              ,de Roon            ,Netherland  ,         625,M. de Roon    ,       664,Netherlands
-19,        7387,Memphis             ,Depay              ,Netherland  ,         118,M. Depay      ,       664,Netherlands
-20,        7604,Mike                ,Maignan            ,France      ,      134496,M. Maignan    ,      4418,France
-21,       12246,Moussa              ,Diaby              ,France      ,      419204,M. Diaby      ,      4418,France
-22,        7863,Nathan              ,Aké                ,Netherland  ,      134102,N. Aké        ,       664,Netherlands
-23,        8206,Olivier             ,Giroud             ,France      ,       26010,O. Giroud     ,      4418,France
-24,       12190,Randal              ,Kolo Muani         ,France      ,      437490,R. Kolo Muani ,      4418,France
-25,       10082,Steven              ,Berghuis           ,Netherland  ,         704,S. Berghuis   ,       664,Netherlands
-26,       11606,Theo                ,Hernández          ,France      ,      344132,T. Hernández  ,      4418,France
-27,       14397,Tyrell              ,Malacia            ,Netherland  ,      404748,T. Malacia    ,       664,Netherlands
-28,       10738,Virgil              ,van Dijk           ,Netherland  ,         370,V. van Dijk   ,       664,Netherlands
-29,       10916,Wout                ,Weghorst           ,Netherland  ,      221069,W. Weghorst   ,       664,Netherlands
-30,       31930,Xavi Quentin Shay   ,Simons             ,Netherland  ,      626551,Xavi Simons   ,       664,Netherlands
-31,       12229,Youssouf            ,Fofana             ,France      ,      525236,Y. Fofana     ,      4418,France
+0,277,Adrien,Rabiot,France,209117,A. Rabiot,4418,France
+1,946,Antoine,Griezmann,France,3682,A. Griezmann,4418,France
+2,12218,Aurélien,Tchouaméni,France,480145,A. Tchouaméni,4418,France
+3,2106,Daley,Blind,Netherland,38,D. Blind,664,Netherlands
+4,2548,Davy,Klaassen,Netherland,56,D. Klaassen,664,Netherlands
+5,11516,Dayot,Upamecano,France,352988,D. Upamecano,4418,France
+6,12654,Donyell,Malen,Netherland,365446,D. Malen,664,Netherlands
+7,22103,Eduardo,Camavinga,France,599551,E. Camavinga,4418,France
+8,3837,Georginio,Wijnaldum,Netherland,116,G. Wijnaldum,664,Netherlands
+9,16320,Ibrahima,Konaté,France,393247,I. Konaté,4418,France
+10,4777,Jasper,Cillessen,Netherland,33,J. Cillessen,664,Netherlands
+11,11630,Jules,Koundé,France,410062,J. Koundé,4418,France
+12,24466,Jurriën,Timber Maduro,Netherland,491458,J. Timber,664,Netherlands
+13,33512,Kenneth,Taylor,Netherland,535816,K. Taylor,664,Netherlands
+14,20191,Khéphren,Thuram-Ulien,France,532750,K. Thuram,4418,France
+15,5922,Kingsley,Coman,France,231139,K. Coman,4418,France
+16,6028,Kylian,Mbappé Lottin,France,353833,K. Mbappé,4418,France
+17,14407,Lutsharel,Geertruida,Netherland,476361,L. Geertruida,664,Netherlands
+18,7017,Marten,de Roon,Netherland,625,M. de Roon,664,Netherlands
+19,7387,Memphis,Depay,Netherland,118,M. Depay,664,Netherlands
+20,7604,Mike,Maignan,France,134496,M. Maignan,4418,France
+21,12246,Moussa,Diaby,France,419204,M. Diaby,4418,France
+22,7863,Nathan,Aké,Netherland,134102,N. Aké,664,Netherlands
+23,8206,Olivier,Giroud,France,26010,O. Giroud,4418,France
+24,12190,Randal,Kolo Muani,France,437490,R. Kolo Muani,4418,France
+25,10082,Steven,Berghuis,Netherland,704,S. Berghuis,664,Netherlands
+26,11606,Theo,Hernández,France,344132,T. Hernández,4418,France
+27,14397,Tyrell,Malacia,Netherland,404748,T. Malacia,664,Netherlands
+28,10738,Virgil,van Dijk,Netherland,370,V. van Dijk,664,Netherlands
+29,10916,Wout,Weghorst,Netherland,221069,W. Weghorst,664,Netherlands
+30,31930,Xavi Quentin Shay,Simons,Netherland,626551,Xavi Simons,664,Netherlands
+31,12229,Youssouf,Fofana,France,525236,Y. Fofana,4418,France
