@@ -1,0 +1,286 @@
+\documentclass[a4paper,12pt]{ltxdoc}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{a4wide,multicol}
+
+% the package
+\newcommand{\TikZ}{Ti\emph{k}Z}
+\newcommand{\SoccerTacTikZ}{SoccerTac\TikZ}
+\usepackage{soccertactikz}
+\tikzset{pitchunit=0.75ex,>=stealth}
+\input{ethcolors}
+
+\usepackage{rotating}
+\usepackage{wrapfig}\setlength{\intextsep}{0ex}
+\graphicspath{{./figs/}}
+
+\usepackage[pdftex,colorlinks,
+    urlcolor=red,linkcolor=red,citecolor=blue,%
+    pdftitle={The SoccerTacTikZ Package},%
+    pdfsubject={Diagramming association football (soccer) tactics},%
+    pdfauthor={Ulrik Brandes}
+   ]{hyperref}
+
+% -----------------------------------------------------------------
+\title{The \textsf{\SoccerTacTikZ} Package for \LaTeX\thanks{%
+\SoccerTacTikZ\ has been developed originally for illustrations 
+in a course on \emph{Soccer Analytics},
+and has evolved into an attempt to define graphical conventions.}\\
+\normalsize ---~version 0.9~---}
+\author{Ulrik Brandes, ETH Zürich}
+\date{2024-10-01}
+% -----------------------------------------------------------------
+
+\begin{document}
+% =================================================================
+\maketitle
+
+% -----------------------------------------------------------------
+\begin{abstract}
+The \textsf{\SoccerTacTikZ} package provides macros
+for association football (soccer) pitches and tactical diagrams. 
+It includes standard player and interaction symbols 
+and supports multiple vendor-specific coordinate systems.
+\end{abstract}
+% -----------------------------------------------------------------
+\tableofcontents
+\clearpage
+
+\section{Introduction}
+% =================================================================
+
+The \textsf{\SoccerTacTikZ} package
+was implemented to create illustrations
+for \emph{Soccer Analytics}, an annual course at ETH Zurich,
+but it is increasingly used for other purposes
+such as theses, articles, and coaching materials.
+ 
+Therefore, the package is now made available for general use,
+and this documentation explains its underlying rationale.
+As the name suggests, \textsf{\SoccerTacTikZ}
+adds some football-related features to 
+to the graphic might of the \TikZ~\cite{tikz} package.
+As a byproduct of facilitating visual representations,
+we hope to establish conventions for tactical diagrams.
+A number of design choices have been made specifically
+to promote accurate depictions and a standardized visual language.
+
+Obviously, football is played between two teams, 
+and we refer to them generically as the home and away team.
+Since tactical analyses are usually focused on one of them,
+we refer to the focal team as the home team.
+The denominations home vs.\ away thus take the role of
+us vs.\ them, or focal team vs.\ opposition
+and should not be interpreted literally.
+
+
+\section{Using the Package}
+% =================================================================
+
+The \SoccerTacTikZ\ package provides \dots
+
+\subsection{Loading and Options}\label{sec:options}
+% -----------------------------------------------------------------
+
+To make use of \textsf{\SoccerTacTikZ},
+the file |soccertactikz.sty| should be
+obtained from \url{https://github.com/ubrandes-ethz/soccertactikz}
+and placed in a directory
+searched by the \LaTeX\ installation.
+It is loaded by placing
+\begin{quote}
+  \cs{usepackage}\oarg{options}{\ttfamily\{soccertactics\}}
+\end{quote}
+in the preamble of a \LaTeX\ document. 
+Several other packages will be loaded automatically,
+not least because \SoccerTacTikZ\ requires \TikZ~\cite{tikz},
+which has its own dependencies.
+
+The following package options allow to set initial parameter values,
+but can be adjusted separately for each diagram.
+\begin{description}
+\item[\tt scale] The unit of measure for pitch coordinates is the SI unit meter. \cs{scale} defaults to 1000, yielding a scale of 1:1000, so that~1m on the pitch corresponds to~1mm in the diagram. 
+\end{description}
+Options can be combined arbitrarily. Declaring, for instance,
+\begin{quote}
+  \cs{usepackage[scale=1050,XXX]\{soccertactikz\}}
+\end{quote}
+scales a standard pitch of 105m~length to~10cm,
+and \dots
+
+
+
+\subsection{Pitches}\label{sec:pitch}
+% -----------------------------------------------------------------
+% viewports, zones
+
+Since we are taking the perspective of one of the two teams,
+this team also defines a direction of play,
+i.e., which of the two goals are
+to be defended and attacked, respectively.
+
+To reduce cognitive dissonance
+between graphical depictions and spatial orientation on the pitch,
+tactics boards are generally set up
+such that the longer side is vertical.
+This way, left and right retain their usual meaning,
+vertical passes are indeed vertical,
+and dropping midfielders are actually moving to a lower location.
+
+\begin{multicols}{2}
+\noindent
+\tikz[pitchunit=1mm]\pic[green]{pitch};
+
+\noindent
+By default, pitch diagrams are therefore oriented
+so that the direction of play is upward for the focal team.
+If context requires, they can still be oriented horizontally,
+but for the reasons stated above this is discouraged.
+\begin{center}
+\begin{tikzpicture}[pitchunit=0.3ex]
+\pic[green,rotate=-90]{pitch};
+\draw (60,28) node[right]{left wing}
+      (60,-28) node[right]{right wing};
+\end{tikzpicture}
+\end{center}
+In addition, 
+pitch dimensions, markings, and other elements
+are drawn to scale to convey an accurate sense of space
+no matter the actual size of the diagram.
+\end{multicols}
+
+
+\subsection{Players}
+% -----------------------------------------------------------------
+
+While any symbol could be used to represent players,
+we assign the two most common ones to players of the 
+home~\tikz\pic[home]{player}; and away~\tikz\pic[away]{player}; team.
+
+These symbols can be colored to match
+shirts~\tikz\pic[home,purple40]{player};,
+shorts~\tikz\pic[home,purple40,shorts=purple]{player};,
+and shirt numbers~\tikz\pic[home,purple40,shorts=purple,number=8]{player};.
+
+Since there 
+
+with and without numbers
+
+in \tikz\pic[attacking]{player};
+and out-of possession \tikz\pic[defending]{player};
+
+in team colors \tikz\pic[bronze,shorts=green]{player};
+
+and in the same spot \tikz{\draw pic[grey]{player}  pic[away]{player};}
+
+\subsection{Interactions}
+% -----------------------------------------------------------------
+styles for passing, dribbling, running
+
+\begin{tabular}{cl}
+\tikz\draw[pass] (0,0) -- (6,0); & pass\\
+\tikz\draw[carry] (0,0) -- (6,0); & dribble\\
+\tikz\draw[run] (0,0) -- (6,0); & run\\
+\end{tabular}
+
+\subsection{Placing Players and the Ball}\label{sec:players}
+% -----------------------------------------------------------------
+home and away, attacking and defending, numbered and labeled,
+scaled and colored
+
+{\tikzset{playerscale=1,gray}\sf
+\begin{tabular}{cl@{\qquad}cl}
+\tikz\pic[home]{player}; & \cs{pic[home]\{player\}} &
+\tikz\pic[home,number=7]{player}; & \cs{pic[home,number=7]\{player\}} \\
+\tikz\pic[away]{player}; & \cs{pic[away]\{player\}} &
+	\tikz\pic[away,number=11]{player}; & \cs{pic[away,number=11]\{player\}} \\
+\tikz\pic[home,shorts=green]{player}; & \cs{pic[home,shorts=green]\{player\}} &
+\tikz\pic[home,shorts=green,number=11]{player}; & \cs{pic[home,shorts=green,number=7]\{player\}} \\
+\tikz\pic[away,shorts=purple]{player}; & \cs{pic[away,shorts=purple]\{player\}} &
+\tikz\pic[away,shorts=purple,number=10]{player}; & \cs{pic[away,shorts=purple,number=11]\{player\}} \\
+\end{tabular}}
+
+\tikz[playerscale=4]{%
+ \draw pic(P)[home,grey]{player} +(20,0) pic(Q)[black,away,rotate=20]{player};
+ \draw[red,thick] (P) -- (Q);
+ \fill (Q.east) circle (0.5) node[right,rotate=20]{Q.east};
+}
+
+\tikz[playerscale=2]{%
+ \draw pic(P)[home,grey]{player} +(20,0) pic(Q)[black,away]{player};
+ \draw[red,thick] (P) -- (Q);
+}
+
+\tikz[playerscale=1]{%
+ \draw pic(P)[home,grey]{player} +(10,-10) pic(Q)[black,away]{player};
+ \draw[red,thick] (P) -- (Q);
+}
+
+player pictures?
+
+\subsection{Routing Passes, Dribbles, and Runs}\label{sec:interactions}
+% -----------------------------------------------------------------
+straight, bend, concatenated, labeled, 
+
+
+\subsection{Annotations}\label{sec:annotations}
+% -----------------------------------------------------------------
+areas, comments
+
+training equipment?
+
+\section{Animations}
+% =================================================================
+
+For now, example use of regular \TikZ\ features.
+Macros for moving players planned.
+
+
+
+\section{Playing out from the Back}
+% =================================================================
+
+\begin{tikzpicture}[pitchunit=1.5mm,>=stealth]
+
+% -- pitch, on top of grass lines and tactical zones (default zones)
+\pic[gray]{pitchgrass};
+\pic[gray!50,dashed]{pitchzones};
+% \pic[green,dashed]{gridzones={6}{3}};
+\tikzset{pitchunit}
+\pic[white]{pitch};
+
+% -- players 
+
+% cross to a #9
+\begin{scope}[home,attacking]
+\draw (-22,85) pic(LF)[possessor]{player};
+\draw (10,90) pic(CF)[number=9]{player};
+\draw[pass] (LF) to[bend left=12] (CF);
+\end{scope}
+
+% some defenders
+\draw foreach \x/\y in {-20/90,-10/80,4/97} {(\x,\y) pic[away,defending]{player}};
+
+\draw (-27,20) pic(S1)[possessor]{player} (-25,55) pic(S2)[shorts=yellow]{player};
+\draw (-17,25) pic(T1)[number=7]{player}  (-15,40) pic(T2)[number=8,shorts=green]{player};
+\draw[pass] (S1) -- (T1);
+\draw[run]  (S1) to[bend left=10] ($(S1)!0.5!(S2)$) to[bend right=20] (S2);
+\draw[carry](T1) -- (T2);
+\draw[pass] (T2) -- (S2);
+
+\begin{scope}[away,shorts=white]
+\draw (-25,23) pic{player}
+      (-12,27) pic[number=11]{player} node[above right]{name}; 
+\end{scope}
+
+\end{tikzpicture}
+
+% =================================================================
+\end{document}
+
+% -- graveyard, but with goal cs example
+\draw (goal cs:h=17,v=22,team=away) \player{RB}{2};
+\GoalCS{away}{defending}
+\draw (goal cs:h=17,v=24) \player{RB}{3};
+\draw (goal cs:h=17,v=-22,team=away,phase=attacking) \player{RB}{4};
+\draw (goal cs:h=19,v=24) \player{RB}{5};
