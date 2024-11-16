@@ -61,18 +61,29 @@ defender_stats.to_csv(SAVE_PATH + 'defender_stats.csv', index=False)
 passes_df_cp = passes_df.reset_index()
 pass_filt_df = passes_df_cp.groupby('frame').filter(lambda x: len(x) >= 2)
 
-relevant_cols = ['frame', 'tracking.object_id_x', 'tracking.object_id_y',  'dxt_x', 'responsibility_x', 'responsibility_y']
+
+relevant_cols = ['frame', 'team.name_x', 'tracking.object_id_x', 'tracking.object_id_y',  'dxt_x', 'responsibility_x', 'responsibility_y']
 joint_df = pass_filt_df.merge(pass_filt_df, on='frame')[relevant_cols]
 joint_df = joint_df[joint_df['tracking.object_id_x'] < joint_df['tracking.object_id_y']]
 joint_df['joint_resp'] = joint_df['responsibility_x'] + joint_df['responsibility_y']
 joint_df.rename(columns={'dxt_x': 'dxt'}, inplace=True)
 
+print(joint_df.iloc[0])
+
 columns_joint_group = ['frame', 'tracking.player.id.skillcorner_x', 'tracking.player.id.skillcorner_y', 'joint_resp']
 defender_dyads_network = joint_df.groupby(['tracking.object_id_x', 'tracking.object_id_y']).agg(
     joint_responsibility_mean=('joint_resp', 'mean'),
     joint_responsibility_sum=('joint_resp', 'sum'),
-    group_size=('joint_resp', 'size')
+    group_size=('joint_resp', 'size'),
+    joint_xt_mean = ('dxt', 'mean'),
+    joint_xt_sum = ('dxt', 'sum')
     ).reset_index()
 
-defender_dyads_network.to_csv(SAVE_PATH + 'defender_dyads_network.csv', index=False)
+id_to_team = joint_df[['tracking.object_id_x', 'team.name_x']].drop_duplicates()
+defender_dyads_network['team'] = defender_dyads_network['tracking.object_id_x'].map(
+    id_to_team.set_index('tracking.object_id_x')['team.name_x']
+)
 
+defender_dyads_network.to_csv(SAVE_PATH + 'defender_dyads_network_final.csv', index=False)
+print("Succesfully generated networks")
+print(defender_dyads_network.iloc[0])

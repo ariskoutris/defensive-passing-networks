@@ -35,66 +35,60 @@ def unzip_all_files_in_dir(directory, target_directory):
         if file.endswith('.zip'):
             with zipfile.ZipFile(directory + file, 'r') as zip_ref:
                 zip_ref.extractall(target_directory)
-def responsibility(row, max_distance=10, pass_length_factor=1.0, end_location_factor=0.5, start_location_factor=0.5):
-    
+def responsibility(row, ball_speed=12.0, defender_speed=6.0):
     start_x = row['location.x']
     start_y = row['location.y']
     end_x = row['pass.endLocation.x']
     end_y = row['pass.endLocation.y']
-    
     player_x = row['tracking.x']
     player_y = row['tracking.y']
-    
-    # Vector from start to end of the pass
+
+    # Pass vector and length
     pass_vector = np.array([end_x - start_x, end_y - start_y])
-    # Vector from start of the pass to the player's position
-    player_vector = np.array([player_x - start_x, player_y - start_y])
-    
     pass_length = np.linalg.norm(pass_vector)
-    
-    
-    if pass_length > 0:
-        pass_unit_vector = pass_vector / pass_length
-        projection_length = np.dot(player_vector, pass_unit_vector)
-        
-        # Clamp projection_length to the range [0, pass_length] to account for the endpoints of the pass
-        projection_length = max(0, min(projection_length, pass_length))
-        
-        # Find the point on the pass closest to the player
-        closest_point = np.array([start_x, start_y]) + projection_length * pass_unit_vector
-        
-        # Distance from player to the closest point on the pass
-        distance_to_pass = np.linalg.norm(np.array([player_x, player_y]) - closest_point)
-    else:
-        # If the pass length is zero, set distance to the player's distance from the start point
-        distance_to_pass = np.linalg.norm(np.array([player_x, player_y]) - np.array([start_x, start_y]))
-    
-    # Calculate distance from the player to the end location of the pass
-    distance_to_end_location = np.linalg.norm(np.array([player_x, player_y]) - np.array([end_x, end_y]))
-    distance_to_start_location = np.linalg.norm(np.array([player_x, player_y]) - np.array([start_x, start_y]))
 
-    
-    # Calculate responsibility with pass length and distance to pass scaling
-    if distance_to_pass < max_distance and row['tracking.object_id'] != -1:
-        raw_responsibility = (1 - (distance_to_pass / max_distance)) * np.power(1 + pass_length_factor, pass_length)
-        
-        # Normalize the responsibility to be between 0 and 1
-        max_possible_responsibility = np.power(1 + pass_length_factor, pass_length)
-        responsibility_score = raw_responsibility / max_possible_responsibility
-        
-        start_location_adjustment = max(0, 1 - (start_location_factor * (distance_to_start_location / max_distance)))
-        
-        normalized_adjustment = 1 + (start_location_adjustment - 1) * start_location_factor
-        
-        # Apply normalized adjustment
-        responsibility_score *= normalized_adjustment
+    if pass_length == 0:
+        return 0  # No pass, no responsibility
 
+    # Ball and defender travel distances
+    ball_time = pass_length / ball_speed
+    max_defender_distance = defender_speed * ball_time
+
+    # Unit vector along the pass trajectory
+    pass_unit_vector = pass_vector / pass_length
+
+    # Perpendicular vector to the pass trajectory
+    perp_vector = np.array([-pass_unit_vector[1], pass_unit_vector[0]])
+
+    # Vector from start of pass to defender's position
+    player_vector = np.array([player_x - start_x, player_y - start_y])
+
+    # Projection of the defender onto the pass trajectory
+    projection_length = np.dot(player_vector, pass_unit_vector)
+
+    # Clamp projection length to [0, pass_length] to ensure it stays within the triangle
+    projection_length = max(0, min(projection_length, pass_length))
+
+    # Closest point on the pass trajectory
+    closest_point = np.array([start_x, start_y]) + projection_length * pass_unit_vector
+
+    # Perpendicular distance from defender to the pass trajectory
+    perpendicular_distance = np.linalg.norm(player_vector - (projection_length * pass_unit_vector))
+
+    # Calculate the triangle width at the projection point
+    triangle_width_at_point = 2 * defender_speed * (projection_length / ball_speed)
+
+    # Half-width of the triangle
+    half_width = triangle_width_at_point / 2
+
+    # Determine if the defender is inside the triangle
+    if perpendicular_distance <= half_width and projection_length <= pass_length and row['tracking.object_id'] != 1:
+        # Responsibility is based on the perpendicular distance ratio
+        responsibility_score = 1 - (perpendicular_distance / half_width)
     else:
-        # If the player is too far, they get no responsibility
+        # Defender is outside the triangle, no responsibility
         responsibility_score = 0
-        
-    
-        
+
     return responsibility_score
 
 def wyscout_to_pitch(x, y, pitch_length, pitch_width, direction):

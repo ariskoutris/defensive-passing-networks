@@ -11,7 +11,7 @@ SKILLCORNER_ID = 952209
 SAVE_PATH = f'../data/networks/match_{SKILLCORNER_ID}/'
 os.makedirs(SAVE_PATH, exist_ok=True)
 
-DATA_PATH = '../data/'
+DATA_PATH = 'data/'
 WYSCOUT_PATH = DATA_PATH + 'wyscout/'
 SKILLCORNER_PATH = DATA_PATH + 'skillcorner/'
 XT_PLOT_PATH = DATA_PATH + 'smoothed_xt.csv'
@@ -160,7 +160,7 @@ passes_df['tracking.is_teammate'] = passes_df.apply(is_teammate, axis=1)
 
 
 # Defender Responsibility
-passes_df['responsibility'] = passes_df.apply(responsibility, axis=1, pass_length_factor=1)
+passes_df['responsibility'] = passes_df.apply(responsibility, axis=1)
 passes_df['responsibility'] = np.where(passes_df['tracking.is_teammate'], 0, passes_df['responsibility'])
     
 location_mismatch = passes_df[passes_df['tracking.is_self']].apply(lambda row: np.linalg.norm([row['location.x'] - row['tracking.x'], row['location.y'] - row['tracking.y']],), axis=1)
@@ -169,3 +169,4 @@ print(location_mismatch.describe())
 
 if SAVE_PATH:
     passes_df.to_pickle(SAVE_PATH + 'passes_df.pkl')
+    print("Succesfully saved")
