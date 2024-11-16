@@ -140,3 +140,26 @@ def wyscout_to_pitch(x, y, pitch_length, pitch_width, direction):
         new_y = -new_y
         
     return new_x, new_y
+
+def passes_avg_coord(passes_df, pitch_length, pitch_width, SAVE_PATH=None):
+    """
+    Takes passes_df with wyscout info
+    Returns average coordinates for the players where they pass
+    """
+    passes_df_coord = passes_df.groupby(['player.id.skillcorner', 'team.name']).agg(
+                    location_x_avg=('location.x', 'mean'),
+                    location_y_avg=('location.y', 'mean'),
+                    ).reset_index()
+    passes_df_coord_map = passes_df_coord.copy()
+    passes_df_coord_avg = \
+    passes_df_coord.apply(\
+    lambda row: wyscout_to_pitch(row['location_x_avg'], row['location_y_avg'], pitch_length, pitch_width, 'TOP_TO_BOTTOM' \
+                                 if row['team.name']=='France' else 'BOTTOM_TO_TOP'), axis=1)
+
+    passes_df_coord['location_x_avg'] = passes_df_coord_avg.apply(lambda x: x[0])
+    passes_df_coord['location_y_avg'] = passes_df_coord_avg.apply(lambda x: x[1])
+    if SAVE_PATH:
+        passes_df_coord.to_csv(SAVE_PATH + 'passes_df_coord.csv', index=False)
+    
+    return passes_df_coord
+    

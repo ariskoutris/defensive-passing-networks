@@ -1,0 +1,443 @@
+%%% soccertikz.sty version 0.6
+%%%
+%%% Tactical diagrams for association football (soccer)
+%%%
+%%% Copyright 2024 Ulrik Brandes (ETH Zürich)
+%%% ========================================================================
+%%% LICENCE:
+%%% This file may be distributed under the terms of the LaTeX Project Public
+%%% License, as described in lppl.txt in the base LaTeX distribution.
+%%% Either version 1.3 or, at your option, any later version.
+%%% ========================================================================
+%%% ubrandes@ethz.ch
+
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{soccertikz}[2024/10/08 v0.6 SoccerTikZ]
+
+%%% ========================================================================
+%%% package loading
+%%% ========================================================================
+
+\RequirePackage{ifthen}
+% \RequirePackage{xkeyval}
+\RequirePackage{tikz}\usetikzlibrary{calc,through,decorations.pathmorphing}
+
+
+%%% ========================================================================
+%%% options
+%%% ========================================================================
+
+\DeclareOption*{\PackageWarning{SoccerTacTikZ}{Unknown option ‘\CurrentOption’}}
+\ProcessOptions\relax       
+
+
+%%% ========================================================================
+%%% settings
+%%% ========================================================================
+
+% internal
+
+\newcounter{pitch@zone}
+
+% -- default colors
+\colorlet{attacking}{red}
+\colorlet{defending}{blue}
+\colorlet{shirtnumber}{white}
+
+% -- pitch dimensions
+\providecommand{\PitchDimensions}[2]{\gdef\pitchlength{#1}\gdef\pitchwidth{#2}}
+\PitchDimensions{105}{68}
+
+% -- scaling
+\newlength{\pitch@meter}\setlength\pitch@meter{1mm} % change with "pitchunit" style
+\tikzset{pitchunit/.initial=\expandafter\pitch@meter}
+\tikzset{pitchunit/.default=\expandafter\pitch@meter}
+\tikzset{pitchunit/.code = {%
+  \setlength\pitch@meter{#1}
+  \tikzset{x=\pitch@meter,y=\pitch@meter}}
+}
+
+\def\player@size{0.75} % player symbols with radius of 0.75m
+\def\player@scale{1} % rescale for larger player
+\tikzset{playerscale/.code = {\def\player@scale{#1}}}
+\tikzset{playerscale/.initial=\expandafter\player@scale}
+\tikzset{playerscale/.default=\expandafter\player@scale}
+
+\def\ball@scale{1} % rescale recommended (0.11m radius barely visible if to scale)
+\tikzset{ballscale/.code = {\def\ball@scale{#1}}}
+\tikzset{ballscale/.initial=\expandafter\ball@scale}
+\tikzset{ballscale/.default=\expandafter\ball@scale}
+
+% -- pitch markings
+\tikzstyle{marking}=[line width=0.12\pitch@meter]
+\tikzstyle{zone marking}=[overlay,marking,dashed,
+  dash pattern=on 0.5\pitch@meter off 0.5\pitch@meter,
+  dash phase=0.25\pitch@meter]
+
+
+%%% ========================================================================
+%%% goal-aligned coordinate system
+%%% ========================================================================
+
+% perspective (determined by team and phase)
+\def\goalcs@team{0}  % team: home
+\def\goalcs@phase{0} % phase: defending
+% internal: set team
+\newcommand{\goalcs@set@team}[1]
+ {\ifthenelse{\equal{#1}{home}} % home:0 (default), away:1
+   {\def\goalcs@team{0}}
+   {\ifthenelse{\equal{#1}{away}}
+     {\def\goalcs@team{1}}
+     {\PackageWarning{SoccerTikZ}{Unknown team ‘#1’ in goal cs}}
+   }
+ }
+% internal: set phase
+\newcommand{\goalcs@set@phase}[1]
+ {\ifthenelse{\equal{#1}{defending}} % defending:0 (default), attacking:1
+   {\def\goalcs@phase{0}}
+   {\ifthenelse{\equal{#1}{attacking}}
+     {\def\goalcs@phase{1}}
+     {\PackageWarning{SoccerTikZ}{Unknown phase ‘#1’ in goal cs}}
+   }
+ }
+% public: set team and phase
+\providecommand{\GoalCS}[2]{\goalcs@set@team{#1}\goalcs@set@phase{#2}}
+
+\define@key{goalcskeys}{team}{\goalcs@set@team{#1}}
+\define@key{goalcskeys}{phase}{\goalcs@set@phase{#1}}
+\define@key{goalcskeys}{h}{\def\goalcs@x{#1}}
+\define@key{goalcskeys}{v}{\def\goalcs@y{#1}}
+\tikzdeclarecoordinatesystem{goal}{%
+  \setkeys{goalcskeys}{#1}%
+  \pgfpointxy
+   {(1-2*\goalcs@team)*\goalcs@x}
+   % Team (H/A) x Phase (A/D):
+   % T\P | D=0  |  A=1
+   % -----------------
+   % H=0 |  y   |  y-L   => (1-2T)y + (T-P)L
+   % A=1 | -y+L | -y
+   {(1-2*\goalcs@team)*\goalcs@y+(\goalcs@team-*\goalcs@phase)*\pitchlength}
+}
+
+% -- goal cs notation
+\newcommand{\ydef}[2][.]{\ensuremath{\color{#1}\underline{#2}}}
+\newcommand{\yatk}[2][.]{\ensuremath{\color{#1}\overline{#2}}}
+\newcommand{\goalcs}[3]{\ensuremath{\langle{#1},\left(\begin{array}{@{}r@{}}#2\\ #3\end{array}\right)\rangle}}
+
+
+%%% ========================================================================
+%%% Wyscout coordinate system (rotate and scale for upward playing direction)
+%%% ========================================================================
+
+\define@key{wyscoutcskeys}{x}{\def\wyscout@x{#1}}
+\define@key{wyscoutcskeys}{y}{\def\wyscout@y{#1}}
+\tikzdeclarecoordinatesystem{wyscout}{%
+  \setkeys{wyscoutcskeys}{#1}%
+  \pgfpointxy
+  {%
+   (\wyscout@y<=19)*((\pitchwidth/2-20.16)*\wyscout@y/19-\pitchwidth/2)
+   +and(\wyscout@y>19,\wyscout@y<=37)*(11*(\wyscout@y-19)/18-20.16)
+   +and(\wyscout@y>37,\wyscout@y<63)*(9.16*(\wyscout@y-50)/13)
+   +and(\wyscout@y>=63,\wyscout@y<81)*(11*(\wyscout@y-63)/18+9.16)
+   +(\wyscout@y>=81)*((\pitchwidth/2-20.16)*(\wyscout@y-81)/19+20.16)
+  }
+  {%
+   (\wyscout@x<=6)*(5.5*\wyscout@x/6)
+   +and(\wyscout@x>6,\wyscout@x<=10)*(5.5*(\wyscout@x-6)/4+5.5)
+   +and(\wyscout@x>10,\wyscout@x<=16)*(5.5*(\wyscout@x-10)/6+11)
+   +and(\wyscout@x>16,\wyscout@x<84)*((\pitchlength-33)*(\wyscout@x-16)/68+16.5)
+   +and(\wyscout@x>=84,\wyscout@x<90)*(5.5*(\wyscout@x-90)/6+\pitchlength-11)
+   +and(\wyscout@x>=90,\wyscout@x<94)*(5.5*(\wyscout@x-94)/4+\pitchlength-5.5)
+   +(\wyscout@x>=94)*(\pitchlength-5.5*(100-\wyscout@x)/6)
+  }
+}
+
+%%% ========================================================================
+%%% StatsBomb coordinate system (rotate and scale for upward playing direction)
+%%% ========================================================================
+
+\define@key{statsbombcskeys}{x}{\def\statsbomb@x{#1}}
+\define@key{statsbombcskeys}{y}{\def\statsbomb@y{#1}}
+\tikzdeclarecoordinatesystem{statsbomb}{%
+  \setkeys{statsbombcskeys}{#1}%
+  \pgfpointxy
+  {%
+   (\statsbomb@y<18)*((\pitchwidth/2-20.16)*\statsbomb@y/18-\pitchwidth/2)
+   +and(\statsbomb@y>=18,\statsbomb@y<30)*(11*(\statsbomb@y-18)/12-20.16)
+   +and(\statsbomb@y>=30,\statsbomb@y<36)*(5.5*(\statsbomb@y-30)/6-9.16)
+   +and(\statsbomb@y>=36,\statsbomb@y<=44)*(7.32*(\statsbomb@y-40)/8-3.66)
+   +and(\statsbomb@y>44,\statsbomb@y<=50)*(5.5*(\statsbomb@y-44)/6+3.66)
+   +and(\statsbomb@y>50,\statsbomb@y<=62)*(11*(\statsbomb@y-50)/12+9.16)
+   +(\statsbomb@y>62)*((\pitchwidth/2-20.16)*(\statsbomb@y-62)/18+20.16)
+  }
+  {%
+   (\statsbomb@x<=18)*(5.5*\statsbomb@x/6)
+   +and(\statsbomb@x>18,\statsbomb@x<102)*((\pitchlength-33)*(\statsbomb@x-18)/84+16.5)
+   +(\statsbomb@x>=102)*(\pitchlength-5.5*(120-\statsbomb@x)/6)
+  }
+}
+
+%%% ========================================================================
+%%% pitch
+%%% ========================================================================
+
+% -- mowing pattern
+\tikzset{pitchgrass/.pic= % 1m margin all around (to make lines more visible)
+ {\fill[.!80!white] (-1-\pitchwidth/2,-1) rectangle +(2+\pitchwidth,2+\pitchlength);
+  \fill
+    (-1-\pitchwidth/2,-1) rectangle +(2+\pitchwidth,1+5.5)
+    ++(0,11+1) rectangle +(2+\pitchwidth,5.5)
+    ++(0,11) rectangle +(2+\pitchwidth,6.1)
+    ++(0,12.2) rectangle +(2+\pitchwidth,6.1)
+    ++(0,12.2) rectangle (1+\pitchwidth/2,\pitchlength/2)
+    (-1-\pitchwidth/2,\pitchlength-5.5) rectangle +(2+\pitchwidth,-5.5)
+    ++(0,-11) rectangle +(2+\pitchwidth,-5.5)
+    ++(0,-11.6) rectangle +(2+\pitchwidth,-6.1)
+    ++(0,-12.2) rectangle +(2+\pitchwidth,-6.1);
+ }
+}
+
+% -- goal and areas
+\tikzset{goal/.pic=
+ {
+  \fill (-3.66,0) rectangle (3.66,-0.5);      % goal
+  \fill (0,11) circle (0.2);                  % penalty mark (common radius 0.11 too small)
+  \begin{scope}                               % penalty arc
+   \clip (-9.15,16.5) rectangle (9.15,21);
+   \draw[marking] (0,11) circle (9.09);
+  \end{scope}
+  \draw[marking] (-9.1,0.06)  rectangle (9.1,5.44);    % goal area
+  \draw[marking] (-20.1,0.06) rectangle (20.1,16.44);  % penalty area
+ }
+}
+
+% -- full pitch
+\tikzset{pitch/.pic=
+ {% shape coordinates corrected by 0.06 (=line width/2) so that markings are inside areas
+  
+  % center of pitch
+  \draw[marking] (-\pitchwidth/2,\pitchlength/2) -- +(\pitchwidth,0);
+  \fill (0,\pitchlength/2) circle (0.25); % should be 0.11, but then it is hardly visible
+  \draw[marking] (0,\pitchlength/2) circle (9.09);
+
+  % corner arcs
+  \draw[marking] (-\pitchwidth/2,0)
+        +(0:0.94)          arc (0:90:0.94)
+        ++(+\pitchwidth,0) arc (90:180:0.94)
+        ++(0,\pitchlength) arc (180:270:0.94)
+        ++(-\pitchwidth,0) arc (270:360:0.94);
+
+  % field of play
+  \draw[marking] (0.06-\pitchwidth/2,0.06) rectangle +(\pitchwidth-0.12,\pitchlength-0.12);
+  % goals
+  \pic[transform shape]{goal};
+  \pic[transform shape,shift={(0,\pitchlength)},yscale=-1]{goal};
+ }
+}
+
+% -- selected areas of pitch
+\tikzset{pics/pitcharea/.style n args={2}{code={%
+  \useasboundingbox[clip] (#1) rectangle (#2);
+  \pic{pitch};
+}}}
+
+\tikzset{attacking half/.pic={\pic{pitcharea=
+  {-\pitchwidth/2,\pitchlength/2}{\pitchwidth/2,\pitchlength+0.5}};}}
+\tikzset{attacking third/.pic={\pic{pitcharea=
+  {-\pitchwidth/2,2*\pitchlength/3}{\pitchwidth/2,\pitchlength+0.5}};}}
+\tikzset{middle third/.pic={\pic{pitcharea=
+  {-\pitchwidth/2,\pitchlength/3}{\pitchwidth/2,2*\pitchlength/3}};}}
+\tikzset{defending third/.pic={\pic{pitcharea=
+  {-\pitchwidth/2,-0.5}{\pitchwidth/2,\pitchlength/3}};}}
+\tikzset{defending half/.pic={\pic{pitcharea=
+  {-\pitchwidth/2,-0.5}{\pitchwidth/2,\pitchlength/2}};}}
+
+
+%%% ========================================================================
+%%% zones
+%%% ========================================================================
+
+% -- parameterized zonal grid 
+\tikzset{pics/gridzones/.style n args={2}{code={%
+  \tikzset{dash pattern=on 0.5\pitch@meter off 0.5\pitch@meter}
+  % grid with lines centered on touch and goal lines
+  \pgfmathparse{(\pitchwidth-0.12)/#2}\edef\hoffset{\pgfmathresult}
+  \pgfmathparse{(\pitchlength-0.12)/#1}\edef\voffset{\pgfmathresult}
+  \draw[zone marking] 
+    (0.06-\pitchwidth/2,-0.12)
+      foreach \x in {0,...,#2} {-- +(0,\pitchlength+0.36) ++(\hoffset,0)}
+    (-0.12-\pitchwidth/2,0.06)
+      foreach \y in {0,...,#1} {-- +(\pitchwidth+0.24,0) ++(0,\voffset)}
+  ;
+  % coordinates of grid cell centers, numbered left-to-right and top-to-bottom
+  \pgfmathparse{\pitchwidth/#2}\edef\hoffset{\pgfmathresult}
+  \pgfmathparse{\pitchlength/#1}\edef\voffset{\pgfmathresult}
+  \setcounter{pitch@zone}{0}
+  \foreach \y in {1,...,#1}
+   \foreach \x in {1,...,#2}
+    {\stepcounter{pitch@zone}
+     \path[overlay] (-\pitchwidth/2,0)
+        ++(\x*\hoffset-\hoffset/2,\y*\voffset-\voffset/2)
+        coordinate(-\arabic{pitch@zone});
+    }
+}}}
+
+% -- fixed tactical zone designs
+\tikzset{pitchzones/.pic = {%
+  \draw[zone marking] (0.06-\pitchwidth/2,0.06) rectangle +(\pitchwidth-0.12,\pitchlength-0.12);
+  % zone 14
+  \ifthenelse{\equal{#1}{zone14}}
+   {\draw[zone marking] 
+    foreach \v in {-20.1,20.1} {(\v,16.5) -- +(0,\pitchlength-33)}
+    foreach \h in {16.44,33,\pitchlength/2,\pitchlength-33,\pitchlength-16.44}
+      {(-0.24-\pitchwidth/2,\h) -- +(\pitchwidth+0.36,0)};
+   }{}
+  % five corridors, six rows
+  \ifthenelse{\equal{#1}{corridors}}
+   {\draw[zone marking] 
+    foreach \v in {-20.1,-9.1,9.1,20.1} {(\v,-0.12) -- +(0,\pitchlength+0.24)}
+    foreach \h in {16.44,33,\pitchlength/2,\pitchlength-33,\pitchlength-16.44}
+      {(-0.24-\pitchwidth/2,\h) -- +(\pitchwidth+0.36,0)};
+   }{}
+  % Guardiola's pitch at Manchester City
+  \ifthenelse{\equal{#1}{guardiola}}
+   {\draw[zone marking] 
+    foreach \v in {-20.1,20.1} {(\v,16.5) -- +(0,\pitchlength-33)}
+    foreach \a in {37,143} {(0,11)++(\a:9.15) -- +(0,\pitchlength-33)};
+   }{}
+  % default: juego de posicion
+  \ifthenelse{\equal{#1}{}}
+   {\draw[zone marking] 
+    foreach \v in {-20.1,-9.1,9.1,20.1} {(\v,16.5) -- +(0,\pitchlength-33)}
+    %foreach \v in {-20.1,20.1} {(\v,0) -- +(0,\pitchlength)}
+    %foreach \h in {16.45,\pitchlength/2,\pitchlength-16.45}
+      %{(-\pitchwidth/2,\h) -- +(\pitchwidth,0)}
+    foreach \h in {16.45,34.2,\pitchlength-34.2,\pitchlength-16.45}
+      {(-\pitchwidth/2,\h) -- +(\pitchwidth/2-20.16,0)
+       (\pitchwidth/2,\h) -- +(-\pitchwidth/2+20.16,0)};
+   }{}
+}}
+
+
+%%% ========================================================================
+%%% players
+%%% ========================================================================
+% alternative: players as halfmoons with direction faced?
+
+% options
+\tikzset{
+  soccertikz/.is family, soccertikz,
+  playershape/.initial=player@shape@circle,
+  possessor/.initial, shirtnumber/.initial, shortscolor/.initial,
+  playershape/.default=player@shape@circle,
+  possessor/.default, shirtnumber/.default, shortscolor/.default
+}
+
+% official ball radius is 11cm
+\tikzset{ball/.pic = {%
+  \node()[circle,inner sep=0pt,outer sep=1pt]{%
+    \tikz[transform shape]{%
+      \useasboundingbox
+        (-0.1*\ball@scale,-0.1*\ball@scale) rectangle (0.1*\ball@scale,0.1*\ball@scale);
+      \fill circle (0.11*\ball@scale);
+    }
+  };
+}}
+
+% shapes for players
+\tikzset{player@shape@circle/.pic = {\draw circle (\player@size);}}
+\tikzset{player@shape@cross/.pic = {%
+  \draw[line cap=round]
+    +(-0.85*\player@size,-0.85*\player@size)
+      -- +(0.85*\player@size, 0.85*\player@size)
+    +(-0.85*\player@size, 0.85*\player@size)
+      -- +(0.85*\player@size,-0.85*\player@size);
+}}
+
+% draw player
+\tikzset{player/.pic = {
+  \tikzset{soccertikz/playershape/.get=\player@shape}
+  \tikzset{soccertikz/shirtnumber/.get=\player@number}
+  \tikzset{soccertikz/shortscolor/.get=\player@shortscolor}
+  \tikzset{soccertikz/possessor/.get=\player@possessor}
+
+  \begin{scope}[transparency group,transform shape]
+  \def\rescaled{\player@scale\pitch@meter}
+  \def\lw{0.5*\rescaled}
+  % pic surrounded by node with the same name
+  \node()[circle,inner sep=0pt,outer sep=1pt]
+  {\tikz[line width=\lw,x=\rescaled,y=\rescaled]{%
+    \useasboundingbox circle (\player@size);
+
+    % uniformly or with shorts of different color?
+    \ifthenelse{\equal{\player@shortscolor}{}}
+     {\pic{\player@shape};}
+     {\begin{scope} % upper half (generously clipped)
+       \path[clip] (2*\player@size,0) arc (0:180:2*\player@size);
+       \pic{\player@shape};
+      \end{scope}
+      \begin{scope} % lower half (generously clipped)
+       \path[clip] (-2*\player@size,0) arc (180:360:2*\player@size);
+       \pic[\player@shortscolor]{\player@shape};
+      \end{scope}
+     }
+
+    % with shirt number ?
+    \ifthenelse{\equal{\player@number}{}}{}
+     {\fill circle (0.8*\player@size);
+      \draw[shirtnumber]
+        node{\scalebox{0.75}{\resizebox{!}{\rescaled}{\player@number}}};
+     }
+   }
+  };
+
+  % with extra circle for possessor ?
+  \if\player@possessor\relax\else
+   \draw[line width=0.5*\lw] circle (\player@size+0.5);
+  \fi
+
+  \end{scope}
+ }
+}
+
+
+% translate parameters
+\tikzstyle{home}=[soccertikz/playershape=player@shape@circle]
+\tikzstyle{away}=[soccertikz/playershape=player@shape@cross]
+\tikzstyle{possessor}=[soccertikz/possessor=O] % non-empty and single token
+\tikzstyle{number}=[soccertikz/shirtnumber=#1]
+\tikzstyle{shorts}=[soccertikz/shortscolor=#1]
+
+
+%%% ========================================================================
+%%% movements
+%%% ========================================================================
+
+\tikzstyle{playermovement}=[line width=0.3\pitch@meter]
+\tikzstyle{pass}=[->,playermovement]
+\tikzstyle{run}=[->,playermovement,dashed,dash pattern=on 0.8\pitch@meter off 0.8\pitch@meter]
+\tikzstyle{carry}=[->,playermovement,decorate,decoration={snake,amplitude=0.4\pitch@meter,segment length=1.6\pitch@meter,post length=0.8\pitch@meter,post=curveto}]
+
+
+
+%%% ========================================================================
+%%% helpers
+%%% ========================================================================
+
+% -- circle through 3 points
+\tikzset{circle through 3 points/.style n args={3}{%
+insert path={let    \p1=($(#1)!0.5!(#2)$),
+                    \p2=($(#1)!0.5!(#3)$),
+                    \p3=($(#1)!0.5!(#2)!1!-90:(#2)$),
+                    \p4=($(#1)!0.5!(#3)!1!90:(#3)$),
+                    \p5=(intersection of \p1--\p3 and \p2--\p4)
+                    in coordinate (M) at (\p5) },
+at={(M)},
+circle through= {(#1)}
+}}
+
+
+% =================================================================
+\endinput
+
