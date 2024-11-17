@@ -11,7 +11,7 @@ SKILLCORNER_ID = 952209
 SAVE_PATH = f'../data/networks/match_{SKILLCORNER_ID}/'
 os.makedirs(SAVE_PATH, exist_ok=True)
 
-DATA_PATH = 'data/'
+DATA_PATH = '../data/'
 WYSCOUT_PATH = DATA_PATH + 'wyscout/'
 SKILLCORNER_PATH = DATA_PATH + 'skillcorner/'
 XT_PLOT_PATH = DATA_PATH + 'smoothed_xt.csv'
@@ -164,8 +164,9 @@ passes_df['responsibility'] = passes_df.apply(responsibility, axis=1)
 passes_df['responsibility'] = np.where(passes_df['tracking.is_teammate'], 0, passes_df['responsibility'])
     
 location_mismatch = passes_df[passes_df['tracking.is_self']].apply(lambda row: np.linalg.norm([row['location.x'] - row['tracking.x'], row['location.y'] - row['tracking.y']],), axis=1)
-print('Wyscout to Skillcorner MSE Location Mismatch')
-print(location_mismatch.describe())
+print('Wyscout to Skillcorner MSE Location Mismatch', location_mismatch.mean())
+with pd.option_context('display.max_columns', None):
+    print(passes_df.sample(5))
 
 if SAVE_PATH:
     passes_df.to_pickle(SAVE_PATH + 'passes_df.pkl')

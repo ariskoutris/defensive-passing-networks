@@ -146,11 +146,11 @@ def passes_avg_coord(passes_df, pitch_length, pitch_width, SAVE_PATH=None):
     Takes passes_df with wyscout info
     Returns average coordinates for the players where they pass
     """
-    passes_df_coord = passes_df.groupby(['player.id.skillcorner', 'team.name']).agg(
+    passes_df_coord = passes_df.groupby(['player.id.skillcorner']).agg(
                     location_x_avg=('location.x', 'mean'),
                     location_y_avg=('location.y', 'mean'),
+                    team_name=('team.name', 'first')
                     ).reset_index()
-    passes_df_coord_map = passes_df_coord.copy()
     passes_df_coord_avg = \
     passes_df_coord.apply(\
     lambda row: wyscout_to_pitch(row['location_x_avg'], row['location_y_avg'], pitch_length, pitch_width, 'TOP_TO_BOTTOM' \
@@ -162,4 +162,3 @@ def passes_avg_coord(passes_df, pitch_length, pitch_width, SAVE_PATH=None):
         passes_df_coord.to_csv(SAVE_PATH + 'passes_df_coord.csv', index=False)
     
     return passes_df_coord
-    
