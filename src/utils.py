@@ -35,6 +35,7 @@ def unzip_all_files_in_dir(directory, target_directory):
         if file.endswith('.zip'):
             with zipfile.ZipFile(directory + file, 'r') as zip_ref:
                 zip_ref.extractall(target_directory)
+                
 def responsibility(row, ball_speed=12.0, defender_speed=6.0):
     start_x = row['location.x']
     start_y = row['location.y']
