@@ -125,7 +125,10 @@ columns_to_prefix = ['object_id', 'x', 'y', 'z']
 prefix = 'tracking.'
 passes_df.rename(columns={col: prefix + col for col in columns_to_prefix}, inplace=True)
 
-
+passes_df['location.x_original'] = passes_df['location.x']
+passes_df['location.y_original'] = passes_df['location.y']
+passes_df['endLocation.x_original'] = passes_df['pass.endLocation.x']
+passes_df['endLocation.y_original'] = passes_df['pass.endLocation.y']
 
 # Normalize Pitch Coordinates
 pitch_length = metadata['pitch_length'].values[0]
@@ -162,7 +165,9 @@ passes_df['tracking.is_teammate'] = passes_df.apply(is_teammate, axis=1)
 # Defender Responsibility
 passes_df['responsibility'] = passes_df.apply(responsibility, axis=1)
 passes_df['responsibility'] = np.where(passes_df['tracking.is_teammate'], 0, passes_df['responsibility'])
-    
+
+print("Ratio", len(passes_df[passes_df['responsibility'] > 0]) / len(passes_df) * 23 / 11)
+
 location_mismatch = passes_df[passes_df['tracking.is_self']].apply(lambda row: np.linalg.norm([row['location.x'] - row['tracking.x'], row['location.y'] - row['tracking.y']],), axis=1)
 print('Wyscout to Skillcorner MSE Location Mismatch', location_mismatch.mean())
 with pd.option_context('display.max_columns', None):
