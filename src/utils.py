@@ -163,3 +163,109 @@ def passes_avg_coord(passes_df, pitch_length, pitch_width, SAVE_PATH=None):
         passes_df_coord.to_csv(SAVE_PATH + 'passes_df_coord.csv', index=False)
     
     return passes_df_coord
+
+
+def calculate_best_attacker_option(passes, xt_table):
+    pitch_length = 105
+    pitch_width = 68
+    xt_rows, xt_cols = 68, 105
+    cell_width = pitch_length / xt_cols
+    cell_height = pitch_width / xt_rows
+    # adjust coordinates for correct dxt calculation
+    def adjust_coordinates(x, y, direction):
+        if direction == 'TOP_TO_BOTTOM':
+            x = (-x + pitch_length / 2) * 100 / pitch_length
+            y = (-y + pitch_width / 2) * 100 / pitch_width
+        elif direction == 'BOTTOM_TO_TOP':
+            x = (x + pitch_length / 2) * 100 / pitch_length
+            y = (y + pitch_width / 2) * 100 / pitch_width
+        return x, y
+    
+    def get_xt_index(x, y):
+        x_index = int(min(x // cell_width, xt_table.shape[1] - 1))
+        y_index = int(min(y // cell_height, xt_table.shape[0] - 1))
+
+        return x_index, y_index
+
+    # Get XT value for a given location
+    def get_xt_value(x, y, direction):
+        adjusted_x, adjusted_y = adjust_coordinates(x, y, direction)
+        x_index, y_index = get_xt_index(adjusted_x, adjusted_y)
+        return xt_table.iat[y_index, x_index]
+    # Calculate potantial dxt given the player passes to certain teammate
+    def calculate_potential_dxt(row):
+        if row['tracking.is_teammate'] and not row['tracking.is_self']:
+            start_xt = get_xt_value(row['location.x'], row['location.y'], row['play_direction'])
+            end_xt = get_xt_value(row['tracking.x'], row['tracking.y'], row['play_direction'])
+            return end_xt - start_xt
+        return 0
+    
+    passes['potential_dxt'] = passes.apply(calculate_potential_dxt, axis=1)
+
+    # Remove unnecessary columns
+    passes_table = passes[['frame', 'player.id.skillcorner', 'location.x', 'location.y', 'play_direction', 'tracking.object_id', 'tracking.x', 'tracking.y', 'tracking.is_teammate', 'tracking.is_self', 'potential_dxt']]
+
+
+
+    def generate_full_defender_dataset(data):
+        full_rows = []
+        
+        # Loop through each frame
+        for frame_id in data['frame'].unique():
+            frame_data = data[data['frame'] == frame_id]
+            
+            # Ensure there are 23 player rows in the frame
+            player_positions = frame_data[(frame_data['tracking.is_teammate']) | (frame_data['tracking.is_self'])]
+            
+            # Identify defenders in the frame
+            defender_positions = frame_data[~frame_data['tracking.is_teammate'] & ~frame_data['tracking.is_self']]
+            
+            # Ensure there are 11 defenders (limit to 11 if more)
+            defender_positions = defender_positions.head(11)
+            
+            # Generate rows: for each player position, associate all 11 defenders
+            for _, player in player_positions.iterrows():
+                for _, defender in defender_positions.iterrows():
+                    new_row = player.copy()
+                    new_row['defender_tracking.x'] = defender['tracking.x']
+                    new_row['defender_tracking.y'] = defender['tracking.y']
+                    full_rows.append(new_row)
+        
+        # Convert the list of rows into a DataFrame
+        full_dataset = pd.DataFrame(full_rows)
+        
+        return full_dataset
+    # evaluate each defender responsibility for each pass and each attacker option
+    passes_table = generate_full_defender_dataset(passes_table)
+    # rename columns to match responsibility function
+    passes_table = passes_table.rename(columns={
+        'tracking.x': 'pass.endLocation.x', # potantial pass receiver location
+        'tracking.y': 'pass.endLocation.y',
+        'defender_tracking.x': 'tracking.x', # defender location
+        'defender_tracking.y': 'tracking.y'})
+
+    passes_table['responsibility'] = passes_table.apply(responsibility, axis=1)
+    # calculate expected threat value for each potantial pass
+    expected_threat = dict()
+
+    for frame in passes_table['frame'].unique():
+        for obj in passes_table[passes_table['frame'] == frame]['tracking.object_id'].unique():
+            dxt = passes_table[(passes_table['frame'] == frame) & (passes_table['tracking.object_id'] == obj)].iloc[0]['potential_dxt']
+            for idx, row in passes_table[(passes_table['frame'] == frame) & (passes_table['tracking.object_id'] == obj)].iterrows():
+                # expected threat value given likelihood of pass success
+                dxt = dxt * (1 - row['responsibility']) # linear calculation
+                expected_threat[(int(frame), int(obj))] = float(dxt)
+
+    expected_threat_max = dict()
+
+    for k, v in expected_threat.items():
+        frame = k[0]
+        if frame not in expected_threat_max:
+            # Initialize the frame with the first value encountered
+            expected_threat_max[frame] = v
+        else:
+            # Update the maximum value for the frame
+            expected_threat_max[frame] = max(expected_threat_max[frame], v)
+
+
+    return expected_threat_max
