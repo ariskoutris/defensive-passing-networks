@@ -52,14 +52,14 @@ def responsibility(row, ball_speed=12.0, defender_speed=6.0):
         return 0  # No pass, no responsibility
 
     # Ball and defender travel distances
-    ball_time = pass_length / ball_speed
-    max_defender_distance = defender_speed * ball_time
+    # ball_time = pass_length / ball_speed
+    # max_defender_distance = defender_speed * ball_time
 
     # Unit vector along the pass trajectory
     pass_unit_vector = pass_vector / pass_length
 
     # Perpendicular vector to the pass trajectory
-    perp_vector = np.array([-pass_unit_vector[1], pass_unit_vector[0]])
+    # perp_vector = np.array([-pass_unit_vector[1], pass_unit_vector[0]])
 
     # Vector from start of pass to defender's position
     player_vector = np.array([player_x - start_x, player_y - start_y])
@@ -71,7 +71,7 @@ def responsibility(row, ball_speed=12.0, defender_speed=6.0):
     projection_length = max(0, min(projection_length, pass_length))
 
     # Closest point on the pass trajectory
-    closest_point = np.array([start_x, start_y]) + projection_length * pass_unit_vector
+    # closest_point = np.array([start_x, start_y]) + projection_length * pass_unit_vector
 
     # Perpendicular distance from defender to the pass trajectory
     perpendicular_distance = np.linalg.norm(player_vector - (projection_length * pass_unit_vector))
@@ -83,7 +83,7 @@ def responsibility(row, ball_speed=12.0, defender_speed=6.0):
     half_width = triangle_width_at_point / 2
 
     # Determine if the defender is inside the triangle
-    if perpendicular_distance <= half_width and projection_length <= pass_length and row['tracking.object_id'] != 1:
+    if perpendicular_distance <= half_width and projection_length <= pass_length and row['tracking.object_id'] != -1:
         # Responsibility is based on the perpendicular distance ratio
         responsibility_score = 1 - (perpendicular_distance / half_width)
     else:
