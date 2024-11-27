@@ -302,3 +302,76 @@ def attacker_options(data, frame, xt_table):
 
     
     return attacker_options_dataframe
+
+
+def calculate_interception_xt(joined_df, xt_table, pitch_length=105, pitch_width=68, xt_rows=68, xt_cols=105):
+
+    # Calculate cell dimensions for the XT grid
+    cell_width = pitch_length / xt_cols
+    cell_height = pitch_width / xt_rows
+
+    def adjust_coordinates(x, y, direction):
+        """
+        Adjust coordinates based on play direction.
+        """
+        if direction == 'BOTTOM_TO_TOP':  # Consider opponent team's perspective
+            x = -x + pitch_length / 2
+            y = -y + pitch_width / 2
+        elif direction == 'TOP_TO_BOTTOM':
+            x = x + pitch_length / 2
+            y = y + pitch_width / 2
+        x = max(min(x, pitch_length), 0)
+        y = max(min(y, pitch_width), 0)
+        return x, y
+
+    def get_xt_index(x, y):
+        """
+        Get the XT table index based on adjusted coordinates.
+        """
+        x_index = int(min(x // cell_width, xt_table.shape[1] - 1))
+        y_index = int(min(y // cell_height, xt_table.shape[0] - 1))
+        return x_index, y_index
+
+    def get_xt_value(x, y, direction):
+        """
+        Get XT value for a given location and play direction.
+        """
+        adjusted_x, adjusted_y = adjust_coordinates(x, y, direction)
+        x_index, y_index = get_xt_index(adjusted_x, adjusted_y)
+        return xt_table.iat[y_index, x_index]
+
+    # Apply the XT value calculation to each row in the DataFrame
+    joined_df['interception_xt'] = joined_df.apply(
+        lambda row: get_xt_value(row['interception_point_x'], row['interception_point_y'], row['play_direction']),
+        axis=1
+    )
+
+    return joined_df
+
+def closest_point(row, ball_speed=12.0, defender_speed=6.0):
+    start_x = row['location.x']
+    start_y = row['location.y']
+    end_x = row['pass.endLocation.x']
+    end_y = row['pass.endLocation.y']
+    player_x = row['tracking.x']
+    player_y = row['tracking.y']
+
+    # Pass vector and length
+    pass_vector = np.array([end_x - start_x, end_y - start_y])
+    pass_length = np.linalg.norm(pass_vector)
+
+    # Unit vector along the pass trajectory
+    pass_unit_vector = pass_vector / pass_length
+
+    # Vector from start of pass to defender's position
+    player_vector = np.array([player_x - start_x, player_y - start_y])
+
+    # Projection of the defender onto the pass trajectory
+    projection_length = np.dot(player_vector, pass_unit_vector)
+
+    # Clamp projection length to [0, pass_length] to ensure it stays within the triangle
+    projection_length = max(0, min(projection_length, pass_length))
+
+    # Closest point on the pass trajectory
+    closest_point = np.array([start_x, start_y]) + projection_length * pass_unit_vector
+    return closest_point

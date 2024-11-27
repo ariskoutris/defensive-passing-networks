@@ -166,7 +166,17 @@ passes_df['tracking.is_teammate'] = passes_df.apply(is_teammate, axis=1)
 passes_df['responsibility'] = passes_df.apply(responsibility, axis=1)
 passes_df['responsibility'] = np.where(passes_df['tracking.is_teammate'], 0, passes_df['responsibility'])
 
-print("Ratio", len(passes_df[passes_df['responsibility'] > 0]) / len(passes_df) * 23 / 11)
+#print("Ratio", len(passes_df[passes_df['responsibility'] > 0]) / len(passes_df) * 23 / 11)
+
+
+# possible xt generated if interception occurs
+passes_df['possible_interception_point'] = passes_df.apply(closest_point, axis = 1)
+passes_df['interception_point_x'] = passes_df['possible_interception_point'].apply(lambda point: point[0])
+passes_df['interception_point_y'] = passes_df['possible_interception_point'].apply(lambda point: point[1])
+
+passes_df = calculate_interception_xt(passes_df, xt_table)
+passes_df['interception_xt'] = np.where(passes_df['tracking.is_teammate'], 0, passes_df['interception_xt'])
+passes_df['threat_by_pressing'] = passes_df['responsibility'] * passes_df['interception_xt']
 
 location_mismatch = passes_df[passes_df['tracking.is_self']].apply(lambda row: np.linalg.norm([row['location.x'] - row['tracking.x'], row['location.y'] - row['tracking.y']],), axis=1)
 print('Wyscout to Skillcorner MSE Location Mismatch', location_mismatch.mean())
