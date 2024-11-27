@@ -164,8 +164,14 @@ def passes_avg_coord(passes_df, pitch_length, pitch_width, SAVE_PATH=None):
     
     return passes_df_coord
 
-# calculate the best attacker dxt generation option for each pass
-def calculate_best_attacker_option(passes, xt_table):
+def filter_data(data, frame):
+    data = data[data['frame'] == frame]
+    return data
+
+# calculate all options for passer in a pass
+def attacker_options(data, frame, xt_table):
+    data = filter_data(data, frame)
+
     pitch_length = 105
     pitch_width = 68
     xt_rows, xt_cols = 68, 105
@@ -207,37 +213,31 @@ def calculate_best_attacker_option(passes, xt_table):
             return end_xt - start_xt
         return 0
     # apply function to generate potential changes in xt, considering all options
-    passes['potential_dxt'] = passes.apply(calculate_potential_dxt, axis=1)
+    data['potential_dxt'] = data.apply(calculate_potential_dxt, axis=1)
 
     # Remove unnecessary columns
-    passes_table = passes[['frame', 'player.id.skillcorner', 'location.x', 'location.y', 'play_direction', 'tracking.object_id', 'tracking.x', 'tracking.y', 'tracking.is_teammate', 'tracking.is_self', 'potential_dxt']]
+    passes_table = data[['frame', 'player.id.skillcorner', 'location.x', 'location.y', 'play_direction', 'tracking.object_id', 'tracking.x', 'tracking.y', 'tracking.is_teammate', 'tracking.is_self', 'potential_dxt']]
 
 
     # for each pass and pass option, locate every defender - expand the dataframe
     def generate_full_defender_dataset(data):
         full_rows = []
         
-        # Loop through each frame
-        for frame_id in data['frame'].unique():
-            frame_data = data[data['frame'] == frame_id]
+        player_positions = data[(data['tracking.is_teammate']) | (data['tracking.is_self'])]
             
-            # Ensure there are 23 player rows in the frame
-            player_positions = frame_data[(frame_data['tracking.is_teammate']) | (frame_data['tracking.is_self'])]
-            
-            # Identify defenders in the frame
-            defender_positions = frame_data[~frame_data['tracking.is_teammate'] & ~frame_data['tracking.is_self']]
-            
-            # Ensure there are 11 defenders (limit to 11 if more)
-            defender_positions = defender_positions.head(11)
-            
-            # Generate rows: for each player position, associate all 11 defenders
-            for _, player in player_positions.iterrows():
-                for _, defender in defender_positions.iterrows():
-                    new_row = player.copy()
-                    # rename the columns for clarity
-                    new_row['defender_tracking.x'] = defender['tracking.x']
-                    new_row['defender_tracking.y'] = defender['tracking.y']
-                    full_rows.append(new_row)
+        # Identify defenders in the frame
+        defender_positions = data[~data['tracking.is_teammate'] & ~data['tracking.is_self']]
+        
+        # Ensure there are 11 defenders (limit to 11 if more)
+        defender_positions = defender_positions.head(11)
+        
+        # Generate rows: for each player position, associate all 11 defenders
+        for _, player in player_positions.iterrows():
+            for _, defender in defender_positions.iterrows():
+                new_row = player.copy()
+                new_row['defender_tracking.x'] = defender['tracking.x']
+                new_row['defender_tracking.y'] = defender['tracking.y']
+                full_rows.append(new_row)
         
         # Convert the list of rows into a DataFrame
         full_dataset = pd.DataFrame(full_rows)
@@ -264,17 +264,17 @@ def calculate_best_attacker_option(passes, xt_table):
     expected_threat = dict()
 
     # iterate through passes
-    for frame in passes_table['frame'].unique():
-        # iterate through pass options
-        for obj in passes_table[passes_table['frame'] == frame]['tracking.object_id'].unique():
-            # potential dxt of possible pass
-            dxt = passes_table[(passes_table['frame'] == frame) & (passes_table['tracking.object_id'] == obj)].iloc[0]['potential_dxt']
-            # for all defender, responsibility effect on xt: xt := xt * (1-resp_1) * (1-resp_2) ...
-            for idx, row in passes_table[(passes_table['frame'] == frame) & (passes_table['tracking.object_id'] == obj)].iterrows():
-                # consider possible interception by every defender
-                dxt = dxt * (1 - row['responsibility'])
-            expected_threat[(int(frame), int(obj))] = float(dxt)
-
+    for obj in passes_table['tracking.object_id'].unique():
+        id = passes_table.iloc[0]['player.id.skillcorner']
+        dxt = passes_table[passes_table['tracking.object_id'] == obj].iloc[0]['potential_dxt']
+        x_loc = passes_table[passes_table['tracking.object_id'] == obj].iloc[0]['pass.endLocation.x']
+        y_loc = passes_table[passes_table['tracking.object_id'] == obj].iloc[0]['pass.endLocation.y']
+        # for all defender, responsibility effect on xt: xt := xt * (1-resp_1) * (1-resp_2) ...
+        for idx, row in passes_table[passes_table['tracking.object_id'] == obj].iterrows():
+            dxt = dxt * (1 - row['responsibility'])
+        expected_threat[(int(id), float(x_loc), float(y_loc), int(obj))] = float(dxt)
+            
+    """
     # compute the best xt generating option, also considering interception probability
     expected_threat_max = dict()
 
@@ -290,7 +290,15 @@ def calculate_best_attacker_option(passes, xt_table):
             # Extract the current maximum value and update if needed
             current_max, current_receiver = expected_threat_max[frame]
             if v > current_max:
-                expected_threat_max[frame] = (v, receiver)
+                expected_threat_max[frame] = (v, receiver)"""
+    
+    # create a dataframe for attacker options
+    data = [
+        {'passer_id': id, 'recipient_player_id': teammate_id, 'recipient_loc_x': loc_x, 'recipient_loc_y': loc_y, 'expected_dxt': max_value}
+        for (id, loc_x, loc_y, teammate_id), max_value in expected_threat.items()]
 
-    # return dictionary in format: key: frame, value: (highest_potential_dxt_value, best_passing_option_attacker_id)
-    return expected_threat_max
+    # Create DataFrame
+    attacker_options_dataframe = pd.DataFrame(data)
+
+    
+    return attacker_options_dataframe
