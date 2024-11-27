@@ -1,6 +1,6 @@
 import pandas as pd
 from utils import *
-    
+from resp import responsibility    
     
 # Set Wyscout and Skillcorner IDs
 WYSCOUT_ID = 5414111
@@ -174,5 +174,6 @@ with pd.option_context('display.max_columns', None):
     print(passes_df.sample(5))
 
 if SAVE_PATH:
-    passes_df.to_pickle(SAVE_PATH + 'passes_df.pkl')
+    passes_df.to_csv(SAVE_PATH + 'passes_df.csv')
+    # passes_df.to_pickle(SAVE_PATH + 'passes_df.csv')
     print("Succesfully saved")

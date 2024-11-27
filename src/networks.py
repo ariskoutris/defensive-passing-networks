@@ -13,12 +13,14 @@ os.makedirs(SAVE_PATH, exist_ok=True)
 os.makedirs(SAVE_PATH + 'defender_subnetworks/', exist_ok=True)
 
 DATA_PATH = f'../data/networks/match_{SKILLCORNER_ID}/'
-PASSES_DF_PATH = DATA_PATH + 'passes_df.pkl'
+PASSES_DF_PATH = DATA_PATH + 'passes_df.csv'
+# PASSES_DF_PATH = DATA_PATH + 'passes_df.pkl'
 
 
 
 # Passes Network
-passes_df = pd.read_pickle(PASSES_DF_PATH)
+passes_df = pd.read_csv(PASSES_DF_PATH)
+# passes_df = pd.read_pickle(PASSES_DF_PATH)
 passes_df.rename(columns={'matchPeriod': 'match.period'}, inplace=True)
 
 

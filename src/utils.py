@@ -36,61 +36,7 @@ def unzip_all_files_in_dir(directory, target_directory):
             with zipfile.ZipFile(directory + file, 'r') as zip_ref:
                 zip_ref.extractall(target_directory)
                 
-def responsibility(row, ball_speed=12.0, defender_speed=6.0):
-    start_x = row['location.x']
-    start_y = row['location.y']
-    end_x = row['pass.endLocation.x']
-    end_y = row['pass.endLocation.y']
-    player_x = row['tracking.x']
-    player_y = row['tracking.y']
 
-    # Pass vector and length
-    pass_vector = np.array([end_x - start_x, end_y - start_y])
-    pass_length = np.linalg.norm(pass_vector)
-
-    if pass_length == 0:
-        return 0  # No pass, no responsibility
-
-    # Ball and defender travel distances
-    # ball_time = pass_length / ball_speed
-    # max_defender_distance = defender_speed * ball_time
-
-    # Unit vector along the pass trajectory
-    pass_unit_vector = pass_vector / pass_length
-
-    # Perpendicular vector to the pass trajectory
-    # perp_vector = np.array([-pass_unit_vector[1], pass_unit_vector[0]])
-
-    # Vector from start of pass to defender's position
-    player_vector = np.array([player_x - start_x, player_y - start_y])
-
-    # Projection of the defender onto the pass trajectory
-    projection_length = np.dot(player_vector, pass_unit_vector)
-
-    # Clamp projection length to [0, pass_length] to ensure it stays within the triangle
-    projection_length = max(0, min(projection_length, pass_length))
-
-    # Closest point on the pass trajectory
-    # closest_point = np.array([start_x, start_y]) + projection_length * pass_unit_vector
-
-    # Perpendicular distance from defender to the pass trajectory
-    perpendicular_distance = np.linalg.norm(player_vector - (projection_length * pass_unit_vector))
-
-    # Calculate the triangle width at the projection point
-    triangle_width_at_point = 2 * defender_speed * (projection_length / ball_speed)
-
-    # Half-width of the triangle
-    half_width = triangle_width_at_point / 2
-
-    # Determine if the defender is inside the triangle
-    if perpendicular_distance <= half_width and projection_length <= pass_length and row['tracking.object_id'] != -1:
-        # Responsibility is based on the perpendicular distance ratio
-        responsibility_score = 1 - (perpendicular_distance / half_width)
-    else:
-        # Defender is outside the triangle, no responsibility
-        responsibility_score = 0
-
-    return responsibility_score
 
 def wyscout_to_pitch(x, y, pitch_length, pitch_width, direction):
     """
@@ -164,141 +110,49 @@ def passes_avg_coord(passes_df, pitch_length, pitch_width, SAVE_PATH=None):
     
     return passes_df_coord
 
-def filter_data(data, frame):
-    data = data[data['frame'] == frame]
-    return data
 
-# calculate all options for passer in a pass
-def attacker_options(data, frame, xt_table):
-    data = filter_data(data, frame)
 
-    pitch_length = 105
-    pitch_width = 68
-    xt_rows, xt_cols = 68, 105
-    cell_width = pitch_length / xt_cols
-    cell_height = pitch_width / xt_rows
-    # adjust coordinates for correct dxt calculation
-    def adjust_coordinates(x, y, direction):
-        if direction == 'TOP_TO_BOTTOM':
-            # get transpose of coordinates
-            x = - x + pitch_length/2
-            y = -y + pitch_width/2
+# adjust coordinates for correct dxt calculation
+def adjust_coordinates(x, y, direction, pitch_dict):
+    pitch_length = pitch_dict['pitch_length']
+    pitch_width = pitch_dict['pitch_width']
 
-        elif direction == 'BOTTOM_TO_TOP':
-            x = x + pitch_length/2
-            y = y + pitch_width/2
-        # consider out of the pitch locations and map them to the edges of the pitch
-        x = max(min(x, pitch_length), 0)
-        y = max(min(y, pitch_width), 0)
+    if direction == 'TOP_TO_BOTTOM':
+        # get transpose of coordinates
+        x = - x + pitch_length/2
+        y = -y + pitch_width/2
 
-        return x, y
+    elif direction == 'BOTTOM_TO_TOP':
+        x = x + pitch_length/2
+        y = y + pitch_width/2
+    # consider out of the pitch locations and map them to the edges of the pitch
+    x = max(min(x, pitch_length), 0)
+    y = max(min(y, pitch_width), 0)
+
+    return x, y
+
+def get_xt_index(x, y, pitch_dict):
+    xt_table = pitch_dict['xt_table']
+    cell_width = pitch_dict['cell_width']
+    cell_height = pitch_dict['cell_height']
+
+    # map locations to xt table
+    x_index = int(min(x // cell_width, xt_table.shape[1] - 1))
+    y_index = int(min(y // cell_height, xt_table.shape[0] - 1))
+    return x_index, y_index
+
+# Get XT value for a given location
+def get_xt_value(x, y, direction, pitch_dict):
+    xt_table = pitch_dict['xt_table']
     
-    def get_xt_index(x, y):
-        # map locations to xt table
-        x_index = int(min(x // cell_width, xt_table.shape[1] - 1))
-        y_index = int(min(y // cell_height, xt_table.shape[0] - 1))
+    adjusted_x, adjusted_y = adjust_coordinates(x, y, direction, pitch_dict)
+    x_index, y_index = get_xt_index(adjusted_x, adjusted_y, pitch_dict)
+    return xt_table.iat[y_index, x_index]
 
-        return x_index, y_index
-
-    # Get XT value for a given location
-    def get_xt_value(x, y, direction):
-        adjusted_x, adjusted_y = adjust_coordinates(x, y, direction)
-        x_index, y_index = get_xt_index(adjusted_x, adjusted_y)
-        return xt_table.iat[y_index, x_index]
-    # Calculate potantial dxt given the player passes to certain teammate
-    def calculate_potential_dxt(row):
-        if row['tracking.is_teammate'] and not row['tracking.is_self']:
-            start_xt = get_xt_value(row['location.x'], row['location.y'], row['play_direction'])
-            end_xt = get_xt_value(row['tracking.x'], row['tracking.y'], row['play_direction'])
-            return end_xt - start_xt
-        return 0
-    # apply function to generate potential changes in xt, considering all options
-    data['potential_dxt'] = data.apply(calculate_potential_dxt, axis=1)
-
-    # Remove unnecessary columns
-    passes_table = data[['frame', 'player.id.skillcorner', 'location.x', 'location.y', 'play_direction', 'tracking.object_id', 'tracking.x', 'tracking.y', 'tracking.is_teammate', 'tracking.is_self', 'potential_dxt']]
-
-
-    # for each pass and pass option, locate every defender - expand the dataframe
-    def generate_full_defender_dataset(data):
-        full_rows = []
-        
-        player_positions = data[(data['tracking.is_teammate']) | (data['tracking.is_self'])]
-            
-        # Identify defenders in the frame
-        defender_positions = data[~data['tracking.is_teammate'] & ~data['tracking.is_self']]
-        
-        # Ensure there are 11 defenders (limit to 11 if more)
-        defender_positions = defender_positions.head(11)
-        
-        # Generate rows: for each player position, associate all 11 defenders
-        for _, player in player_positions.iterrows():
-            for _, defender in defender_positions.iterrows():
-                new_row = player.copy()
-                new_row['defender_tracking.x'] = defender['tracking.x']
-                new_row['defender_tracking.y'] = defender['tracking.y']
-                full_rows.append(new_row)
-        
-        # Convert the list of rows into a DataFrame
-        full_dataset = pd.DataFrame(full_rows)
-        
-        return full_dataset
-    
-    # evaluate each defender responsibility for each pass and each attacker option
-    passes_table = generate_full_defender_dataset(passes_table)
-
-    # remove the passer from the options
-    passes_table = passes_table[~(passes_table['tracking.is_teammate'] & passes_table['tracking.is_self'])]
-
-    # rename columns to match responsibility function input
-    passes_table = passes_table.rename(columns={
-        'tracking.x': 'pass.endLocation.x', # potantial pass receiver location
-        'tracking.y': 'pass.endLocation.y',
-        'defender_tracking.x': 'tracking.x', # defender location
-        'defender_tracking.y': 'tracking.y'})
-
-    # apply responsibility function
-    passes_table['responsibility'] = passes_table.apply(responsibility, axis=1)
-
-    # calculate expected threat value for each potantial pass
-    expected_threat = dict()
-
-    # iterate through passes
-    for obj in passes_table['tracking.object_id'].unique():
-        id = passes_table.iloc[0]['player.id.skillcorner']
-        dxt = passes_table[passes_table['tracking.object_id'] == obj].iloc[0]['potential_dxt']
-        x_loc = passes_table[passes_table['tracking.object_id'] == obj].iloc[0]['pass.endLocation.x']
-        y_loc = passes_table[passes_table['tracking.object_id'] == obj].iloc[0]['pass.endLocation.y']
-        # for all defender, responsibility effect on xt: xt := xt * (1-resp_1) * (1-resp_2) ...
-        for idx, row in passes_table[passes_table['tracking.object_id'] == obj].iterrows():
-            dxt = dxt * (1 - row['responsibility'])
-        expected_threat[(int(id), float(x_loc), float(y_loc), int(obj))] = float(dxt)
-            
-    """
-    # compute the best xt generating option, also considering interception probability
-    expected_threat_max = dict()
-
-    for k, v in expected_threat.items():
-        frame = k[0]
-        receiver = k[1]
-
-        # Check if the frame is already in the dictionary
-        if frame not in expected_threat_max:
-            # Initialize with the first value and receiver
-            expected_threat_max[frame] = (v, receiver)
-        else:
-            # Extract the current maximum value and update if needed
-            current_max, current_receiver = expected_threat_max[frame]
-            if v > current_max:
-                expected_threat_max[frame] = (v, receiver)"""
-    
-    # create a dataframe for attacker options
-    data = [
-        {'passer_id': id, 'recipient_player_id': teammate_id, 'recipient_loc_x': loc_x, 'recipient_loc_y': loc_y, 'expected_dxt': max_value}
-        for (id, loc_x, loc_y, teammate_id), max_value in expected_threat.items()]
-
-    # Create DataFrame
-    attacker_options_dataframe = pd.DataFrame(data)
-
-    
-    return attacker_options_dataframe
+# Calculate potantial dxt given the player passes to certain teammate
+def calculate_potential_dxt(row, pitch_dict):
+    if row['tracking.is_teammate'] and not row['tracking.is_self']:
+        start_xt = get_xt_value(row['location.x'], row['location.y'], row['play_direction'], pitch_dict)
+        end_xt = get_xt_value(row['tracking.x'], row['tracking.y'], row['play_direction'], pitch_dict)
+        return end_xt - start_xt
+    return 0
