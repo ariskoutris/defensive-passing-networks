@@ -1,11 +1,10 @@
 import pandas as pd
 from utils import *
-
+import os
 
 # Set Wyscout and Skillcorner IDs
 WYSCOUT_ID = 5414111
 SKILLCORNER_ID = 952209
-
 
 # Set path to save the resulting dataframes. Otherwise, set to None.
 SAVE_PATH = f'../data/networks/match_{SKILLCORNER_ID}/'
@@ -13,14 +12,16 @@ os.makedirs(SAVE_PATH, exist_ok=True)
 os.makedirs(SAVE_PATH + 'defender_subnetworks/', exist_ok=True)
 
 DATA_PATH = f'../data/networks/match_{SKILLCORNER_ID}/'
-PASSES_DF_PATH = DATA_PATH + 'passes_df.csv'
-# PASSES_DF_PATH = DATA_PATH + 'passes_df.pkl'
+PASSES_DF_PATH = DATA_PATH + 'passes_df'
 
+# Flag to choose whether to use pickle
+USE_PICKLE = False
 
-
-# Passes Network
-passes_df = pd.read_csv(PASSES_DF_PATH)
-# passes_df = pd.read_pickle(PASSES_DF_PATH)
+# Read Passes Network
+if USE_PICKLE:
+    passes_df = pd.read_pickle(PASSES_DF_PATH + '.pkl')
+else:
+    passes_df = pd.read_csv(PASSES_DF_PATH + '.csv')
 passes_df.rename(columns={'matchPeriod': 'match.period'}, inplace=True)
 
 
@@ -83,6 +84,10 @@ defender_dyads_network = joint_df.groupby(['tracking.object_id_x', 'tracking.obj
     group_size=('joint_resp', 'size')
     ).reset_index()
 
-defender_dyads_network.to_csv(SAVE_PATH + 'defender_dyads_network.csv', index=False)
+# Save Defender Dyads Network
+if USE_PICKLE:
+    defender_dyads_network.to_pickle(SAVE_PATH + 'defender_dyads_network.pkl')
+else:
+    defender_dyads_network.to_csv(SAVE_PATH + 'defender_dyads_network.csv', index=False)
 
-print("Succesfully generated networks")
+print("Successfully generated networks")

@@ -11,6 +11,9 @@ SKILLCORNER_ID = 952209
 SAVE_PATH = f'../data/networks/match_{SKILLCORNER_ID}/'
 os.makedirs(SAVE_PATH, exist_ok=True)
 
+# Define flag to choose how to save passes_df
+USE_PICKLE = False
+
 DATA_PATH = '../data/'
 WYSCOUT_PATH = DATA_PATH + 'wyscout/'
 SKILLCORNER_PATH = DATA_PATH + 'skillcorner/'
@@ -184,6 +187,8 @@ with pd.option_context('display.max_columns', None):
     print(passes_df.sample(5))
 
 if SAVE_PATH:
-    passes_df.to_csv(SAVE_PATH + 'passes_df.csv')
-    # passes_df.to_pickle(SAVE_PATH + 'passes_df.csv')
-    print("Succesfully saved")
+    if USE_PICKLE:
+        passes_df.to_pickle(SAVE_PATH + 'passes_df.pkl')
+    else:
+        passes_df.to_csv(SAVE_PATH + 'passes_df.csv')
+    print("Successfully saved")
