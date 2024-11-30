@@ -26,7 +26,7 @@ def attacker_options(passes_df, frame, pitch_dict):
 
     # Remove unnecessary columns
     passes_table = data[['frame', 'player.id.skillcorner', 'location.x', 'location.y', 'play_direction', 'tracking.object_id', 'tracking.x', 'tracking.y', 'tracking.is_teammate', 'tracking.is_self', 'potential_dxt']]
-
+    passes_table = passes_table[passes_table['tracking.object_id'] != -1]
 
     # for each pass and pass option, locate every defender - expand the dataframe
     def generate_full_defender_dataset(data):
@@ -37,15 +37,13 @@ def attacker_options(passes_df, frame, pitch_dict):
         # Identify defenders in the frame
         defender_positions = data[~data['tracking.is_teammate'] & ~data['tracking.is_self']]
         
-        # Ensure there are 11 defenders (limit to 11 if more)
-        defender_positions = defender_positions.head(11)
-        
         # Generate rows: for each player position, associate all 11 defenders
         for _, player in player_positions.iterrows():
             for _, defender in defender_positions.iterrows():
                 new_row = player.copy()
                 new_row['defender_tracking.x'] = defender['tracking.x']
                 new_row['defender_tracking.y'] = defender['tracking.y']
+                new_row['defender_tracking.id'] = defender['tracking.object_id']
                 full_rows.append(new_row)
         
         # Convert the list of rows into a DataFrame
