@@ -48,7 +48,7 @@ def get_dxt_parallel(x_start, y_start, x_end, y_end, direction, pitch_dict):
 
 def threat_aggregator(mode='max', k=3, temp=1):
     if mode == 'max':
-        return lambda x: max(x.values())
+        return np.max
     # elif mode == 'softmax':
     #     def softmax(x):
     #         x = np.array(list(x.values()))
@@ -57,11 +57,11 @@ def threat_aggregator(mode='max', k=3, temp=1):
     #         return sum(softmax_scores * x)
     #     return softmax
     #     return lambda x: sum([np.exp(v) for v in x.values()])
-    elif mode == 'topK':
-        return lambda x: sum(sorted(x.values(), reverse=True)[:k])
+    # elif mode == 'topK':
+        # return lambda x: sum(sorted(x.values(), reverse=True)[:k])
     elif mode == 'mean':
-        return lambda x: sum(x.values()) / len(x)
+        return np.mean
     elif mode == 'sum':
-        return lambda x: sum(x.values())
+        return np.sum
     else:
         raise ValueError('Invalid mode')

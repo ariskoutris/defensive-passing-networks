@@ -1,6 +1,7 @@
 import numpy as np
-import gymnasium as gym
-from gymnasium import spaces
+import gym
+from gym import spaces
+
 import matplotlib.pyplot as plt
 
 import sys
@@ -44,25 +45,33 @@ class DefenderPosEnv(gym.Env):
         self.max_radius = max_radius
         
         # Define action space: Continuous changes to player coordinates => 11 (angle, radius) => 22 dimensions
+        low_action = np.tile(np.array([0, 0]), (11, 1))
+        high_action = np.tile(np.array([2*np.pi, self.max_radius]), (11, 1))
         self.action_space = spaces.Box(
-            low=np.array([[0, 0]]), 
-            high=np.array([[2*np.pi, self.max_radius]]), 
+            low=low_action, 
+            high=high_action, 
             shape=(11, 2),
             dtype=np.float32
         )
         # Define observation space: Players' positions on the field => 22 (x,y) => 44 dimensions
+        low_action = np.tile(np.array([self.min_x, self.min_y]), (22, 1))
+        high_action = np.tile(np.array([self.max_x, self.max_y]), (22, 1))
         self.observation_space = spaces.Box(
-            low=np.array([[self.min_x, self.min_y]]),  # Min bounds for all 10 pairs
-            high=np.array([[self.max_x, self.max_y]]),  # Max bounds for all 10 pairs
+            low=low_action,  # Min bounds for all 10 pairs
+            high=high_action,  # Max bounds for all 10 pairs
             shape=(22, 2),  # 22 pairs of (x, y) coordinates
             dtype=np.float32
         )
 
         # Initial state
         self.state = None
+        self.prev_state = None
+        self.count = 0
+
         self.frame_id = None # picked frame_id for the passes_df
         self.play_dir = None
         self.state_init = None
+        self.reward = 0
 
     def reset(self, seed=None, options=None):
         """Reset the environment."""
@@ -91,14 +100,26 @@ class DefenderPosEnv(gym.Env):
         # opponent plays the optimal pass at that moment if threat_agg=max, there could be different policies, eg. expected threat etc.
         # Reward: Encourage players to move closer to the goal
         reward = - self.get_action_reward() # minimize the threat, maximize negated threat value
-
-        done = np.all(distances_to_goal < 5.0)  # Consider "done" if all players are within 5 units of the goal
+        self.reward = reward
+        done = False
+        # done = # TODO => define condition later
         
+        if np.allclose(self.state, self.prev_state, atol=1e-4):
+            self.count += 1
+            if self.count > 10:
+                print('converged, done!')
+                done = True
+            else:
+                self.count = 0
+        self.prev_state = self.state
+
         return self.state, reward, done, False, {}
 
     def render(self, mode="human"):
         # TODO: Implement rendering => ARIS Plot, for all defender => from original position to new position or previous position to new position
         """Visualize the environment."""
+        # print(f"State: {self.state}")
+        print(f"Reward: {self.reward}")
         pass
         # plt.figure(figsize=(10, 5))
         # plt.xlim(0, self.field_size[0])
@@ -126,7 +147,7 @@ class DefenderPosEnv(gym.Env):
         data = self.passes_df
         data = data[data['frame']==frame_id] # filter pass
         
-        self.play_dir = self.passes_df['play_direction'].unique()
+        self.play_dir = data['play_direction'].unique()
         assert len(self.play_dir) == 1, AssertionError('should only get 1 player_dir for the pass')
         self.play_dir = self.play_dir[0]
 
@@ -150,8 +171,8 @@ class DefenderPosEnv(gym.Env):
         passer_loc = self.state[-1, :]
 
         # get dxt for each pass option
-        x_start = passer_loc[:,0] # scalar
-        y_start = passer_loc[:,1]
+        x_start = passer_loc[0] # scalar
+        y_start = passer_loc[1]
         x_end = recip_loc[:,0] # 10,1
         y_end = recip_loc[:,1]
 
