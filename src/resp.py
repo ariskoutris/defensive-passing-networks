@@ -49,3 +49,28 @@ def responsibility(row, ball_speed=12.0, defender_speed=6.0):
         responsibility_score = 0
 
     return responsibility_score
+
+
+def responsibility_parallel(defender_coord, recipient_coord, passer_coord, ball_speed=12.0, defender_speed=6.0):
+    pass_vector = recipient_coord - passer_coord
+    pass_length = np.linalg.norm(pass_vector, axis=1).reshape(-1,1)
+
+    pass_unit_vector = np.divide(pass_vector, pass_length, out=np.zeros_like(pass_vector, dtype=float), where=pass_length!=0)
+    def_vector = defender_coord - passer_coord
+
+    projection_length = def_vector @ pass_unit_vector.T
+    projection_length = np.maximum(np.minimum(projection_length, pass_length.squeeze()), 0)
+
+    perpendicular_distance = np.linalg.norm(np.expand_dims(def_vector, axis=1) - (np.expand_dims(projection_length, axis=-1) * pass_unit_vector), axis=2)
+    triangle_width_at_point = 2 * defender_speed * (projection_length / ball_speed)
+
+
+    half_width = triangle_width_at_point / 2
+    responsibility_score = np.zeros_like(perpendicular_distance)
+
+    mask = np.logical_and(perpendicular_distance <= half_width, projection_length <= pass_length.squeeze())
+    responsibility_score[mask] = 1 - np.divide(perpendicular_distance, half_width, out=np.ones_like(perpendicular_distance, dtype=float), where=half_width!=0)[mask]
+    
+    assert responsibility_score.shape == (11,10), AssertionError('responsibility matrix shape invalid: {}'.format(responsibility_score.shape))
+
+    return responsibility_score

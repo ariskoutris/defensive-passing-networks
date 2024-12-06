@@ -157,6 +157,11 @@ def calculate_potential_dxt(row, pitch_dict):
         return end_xt - start_xt
     return 0
 
+def get_dxt(x_start, y_start, x_end, y_end, direction):
+    start_xt = get_xt_value(x_start, y_start, direction)
+    end_xt = get_xt_value(x_end, y_end, direction)
+    return end_xt - start_xt
+
 # determine the expected threat of a potential interception
 def calculate_interception_xt(joined_df, xt_table, pitch_length=105, pitch_width=68, xt_rows=68, xt_cols=105):
 
