@@ -32,15 +32,17 @@ class DefenderPosEnv(gym.Env):
 
     def __init__(self, pitch_dict, passes_df, max_radius=5.0, threat_agg='max'):
         super(DefenderPosEnv, self).__init__()
+
         self.pitch_dict = pitch_dict
         self.passes_df = passes_df
         self.threat_agg = threat_aggregator(threat_agg)
 
         self.frame_id_list = passes_df['frame'].unique()
-        self.min_x = -self.pitch_dict['pitch_length'] / 2
-        self.max_x = self.pitch_dict['pitch_length'] / 2
-        self.min_y = -self.pitch_dict['pitch_width'] / 2
-        self.max_y = self.pitch_dict['pitch_width'] / 2
+        coeff = 1.5
+        self.min_x = -(self.pitch_dict['pitch_length'] / 2) * coeff
+        self.max_x = (self.pitch_dict['pitch_length'] / 2) * coeff
+        self.min_y = -(self.pitch_dict['pitch_width'] / 2) * coeff
+        self.max_y = (self.pitch_dict['pitch_width'] / 2) * coeff
         # maximum radius for the defenders to be placed from the actual position
         self.max_radius = max_radius
         
@@ -65,24 +67,40 @@ class DefenderPosEnv(gym.Env):
 
         # Initial state
         self.state = None
-        self.prev_state = None
+        self.prev_state = np.zeros((22,2))
         self.count = 0
 
         self.frame_id = None # picked frame_id for the passes_df
         self.play_dir = None
         self.state_init = None
+        
+
+        self.reward_scale = 1000
+        self.max_iters = 200
+        self.iters = 0
+        
+        self.reward_init = 0
+        self.reward_final = 0
         self.reward = 0
+
+        
 
     def reset(self, seed=None, options=None):
         """Reset the environment."""
         super().reset(seed=seed)
         # uniformly sample a frame_id from the passes_df
+        print('reward_init:', self.reward_init, 'reward_final:', self.reward_final)
+
         self.frame_id = np.random.choice(self.frame_id_list)
+        print('frame_id:', self.frame_id)
 
         self.state_init = self.get_init(self.frame_id)
         self.state = self.state_init
         assert self.state.shape == (22, 2), AssertionError('state dimension wrong: {}'.format(self.state.shape))
         
+        self.iters = 0
+        self.reward_init = - self.get_action_reward(reward_scale=self.reward_scale)
+
         return self.state, {}
 
     def step(self, action):
@@ -93,17 +111,24 @@ class DefenderPosEnv(gym.Env):
         action_net = np.stack([np.cos(action_alpha), np.sin(action_alpha)], axis=1) * action_radius
         
         assert action_net.shape == (11,2), AssertionError('action dimension invalid: {}'.format(action_net.shape))
+
+        reward_before = - self.get_action_reward(reward_scale=self.reward_scale)
         # update states after the action
         self.state[:11] = self.state_init[:11] + action_net
         
 
         # opponent plays the optimal pass at that moment if threat_agg=max, there could be different policies, eg. expected threat etc.
         # Reward: Encourage players to move closer to the goal
-        reward = - self.get_action_reward() # minimize the threat, maximize negated threat value
+        reward = - self.get_action_reward(reward_scale=self.reward_scale) # minimize the threat, maximize negated threat value
         self.reward = reward
         done = False
         # done = # TODO => define condition later
-        
+
+        print('reward_before:', reward_before)
+        print('reward:', reward)
+
+        # print(self.state)
+        # print(action)
         if np.allclose(self.state, self.prev_state, atol=1e-4):
             self.count += 1
             if self.count > 10:
@@ -112,7 +137,13 @@ class DefenderPosEnv(gym.Env):
             else:
                 self.count = 0
         self.prev_state = self.state
+        
+        self.iters += 1
+        if self.iters > self.max_iters:
+            # print('max_iters reached, done!')
+            done = True
 
+        self.reward_final = reward
         return self.state, reward, done, False, {}
 
     def render(self, mode="human"):
@@ -165,7 +196,7 @@ class DefenderPosEnv(gym.Env):
         return state
 
 
-    def get_action_reward(self):
+    def get_action_reward(self, reward_scale=1.0):
         def_loc = self.state[0:11, :]
         recip_loc = self.state[11:21, :]
         passer_loc = self.state[-1, :]
@@ -184,4 +215,4 @@ class DefenderPosEnv(gym.Env):
         reward = np.prod(1-resp_matrix, axis=0) * dxt_arr
         reward = self.threat_agg(reward)
         
-        return reward
+        return reward*reward_scale
