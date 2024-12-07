@@ -128,10 +128,7 @@ columns_to_prefix = ['object_id', 'x', 'y', 'z']
 prefix = 'tracking.'
 passes_df.rename(columns={col: prefix + col for col in columns_to_prefix}, inplace=True)
 
-passes_df['location.x_original'] = passes_df['location.x']
-passes_df['location.y_original'] = passes_df['location.y']
-passes_df['endLocation.x_original'] = passes_df['pass.endLocation.x']
-passes_df['endLocation.y_original'] = passes_df['pass.endLocation.y']
+
 
 # Normalize Pitch Coordinates
 pitch_length = metadata['pitch_length'].values[0]
@@ -143,6 +140,9 @@ start_locations = passes_df.apply(
 end_locations = passes_df.apply(
     lambda row: wyscout_to_pitch(row['pass.endLocation.x'], row['pass.endLocation.y'], pitch_length, pitch_width, row['play_direction']), 
     axis=1)
+
+passes_df[['location.x.norm', 'location.y.norm']] = passes_df[['location.x','location.y']]
+passes_df[['pass.endLocation.x.norm', 'pass.endLocation.y.norm']] = passes_df[['pass.endLocation.x','pass.endLocation.y']]
 
 passes_df[['location.x', 'location.y']] = start_locations.apply(pd.Series)
 passes_df[['pass.endLocation.x', 'pass.endLocation.y']] = end_locations.apply(pd.Series)
@@ -160,8 +160,15 @@ def is_teammate(row):
     tracking_player_team = player_team_dict[row['tracking.object_id']]
     return player_team == tracking_player_team
 
+def is_opponent(row):
+    if row['tracking.object_id'] == -1:
+        return False
+    return not row['tracking.is_teammate']
+
 passes_df['tracking.is_self'] = passes_df.apply(is_self, axis=1)
 passes_df['tracking.is_teammate'] = passes_df.apply(is_teammate, axis=1)
+passes_df['tracking.is_opponent'] = passes_df.apply(is_opponent, axis=1)
+passes_df['tracking.is_ball'] = passes_df['tracking.object_id'] == -1
 
 
 
@@ -169,10 +176,9 @@ passes_df['tracking.is_teammate'] = passes_df.apply(is_teammate, axis=1)
 passes_df['responsibility'] = passes_df.apply(responsibility, axis=1)
 passes_df['responsibility'] = np.where(passes_df['tracking.is_teammate'], 0, passes_df['responsibility'])
 
-#print("Ratio", len(passes_df[passes_df['responsibility'] > 0]) / len(passes_df) * 23 / 11)
 
 
-# possible xt generated if interception occurs
+# Expected Threat Gain in case of Interception
 passes_df['possible_interception_point'] = passes_df.apply(closest_point, axis = 1)
 passes_df['interception_point_x'] = passes_df['possible_interception_point'].apply(lambda point: point[0])
 passes_df['interception_point_y'] = passes_df['possible_interception_point'].apply(lambda point: point[1])
@@ -181,8 +187,29 @@ passes_df = calculate_interception_xt(passes_df, xt_table)
 passes_df['interception_xt'] = np.where(passes_df['tracking.is_teammate'], 0, passes_df['interception_xt'])
 passes_df['threat_by_pressing'] = passes_df['responsibility'] * passes_df['interception_xt']
 
+# Organize Columns
+col_mask = ['matchPeriod', 'team.name', 'player.id.wyscout',
+    'player.id.skillcorner', 'pass.recipient.id.wyscout',
+    'pass.recipient.id.skillcorner', 'location.x', 'location.y',
+    'pass.endLocation.x', 'pass.endLocation.y', 'location.x.norm', 'location.y.norm', 'pass.endLocation.x.norm',
+    'pass.endLocation.y.norm', 'play_direction', 'dxt',
+    'tracking.object_id', 'tracking.x', 'tracking.y', 'tracking.z',
+    'tracking.is_self', 'tracking.is_teammate',
+    'tracking.is_opponent', 'tracking.is_ball', 'responsibility',
+    'interception_point_x', 'interception_point_y', 'interception_xt', 'threat_by_pressing'
+]
+rename_cols = {
+    'interception_point_x': 'tracking.interception.x',
+    'interception_point_y': 'tracking.interception.y',
+    'interception_xt': 'tracking.interception.xt',
+}
+passes_df[col_mask].rename(columns=rename_cols)
+
+
+
 location_mismatch = passes_df[passes_df['tracking.is_self']].apply(lambda row: np.linalg.norm([row['location.x'] - row['tracking.x'], row['location.y'] - row['tracking.y']],), axis=1)
 print('Wyscout to Skillcorner MSE Location Mismatch', location_mismatch.mean())
+
 with pd.option_context('display.max_columns', None):
     print(passes_df.sample(5))
 

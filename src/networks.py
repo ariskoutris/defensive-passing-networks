@@ -26,8 +26,7 @@ passes_df.rename(columns={'matchPeriod': 'match.period'}, inplace=True)
 
 
 # Keep only players of the opposing team, who are defenders with responsibility greater than 0.
-passes_df = passes_df[~passes_df['tracking.is_teammate']]
-passes_df = passes_df[passes_df['tracking.object_id'] != -1]
+passes_df = passes_df[passes_df['tracking.is_opponent']]
 passes_df = passes_df[passes_df['responsibility'] > 0]
 
 # Passes Network
