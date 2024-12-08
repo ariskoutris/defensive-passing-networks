@@ -21,15 +21,19 @@ class PassPlotter:
         defender_data = self.pass_df[self.pass_df['tracking.object_id'] == player_id]
         return defender_data[['tracking.x', 'tracking.y']].values[0]
 
-    def get_attacker_locations(self, include_passer=False):
+    def get_attacker_locations(self, include_passer=False, include_ids=False):
         mask = self.pass_df['tracking.is_teammate']
         if not include_passer:
             mask &= ~self.pass_df['tracking.is_self']        
         attackers_data = self.pass_df[mask]
+        if include_ids:
+            return attackers_data[['tracking.x', 'tracking.y']].values, attackers_data['tracking.object_id'].values
         return attackers_data[['tracking.x', 'tracking.y']].values
 
-    def get_defender_locations(self):
+    def get_defender_locations(self, include_ids=False):
         defenders_data = self.pass_df[self.pass_df['tracking.is_opponent']]
+        if include_ids:
+            return defenders_data[['tracking.x', 'tracking.y']].values, defenders_data['tracking.object_id'].values
         return defenders_data[['tracking.x', 'tracking.y']].values
 
     def plot_players(self):
