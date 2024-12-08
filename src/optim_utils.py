@@ -124,6 +124,134 @@ def create_xt_func(defender_id, data, frame_id, threat_map):
     
     return xt_func
 
+def responsibility_vectorized(start_x, start_y, end_x, end_y, player_x, player_y, ball_speed=12.0, defender_speed=6.0):
+    
+    # Compute pass vectors
+    pass_vector_x = end_x - start_x      # Shape: (n_recipients, 1)
+    pass_vector_y = end_y - start_y      # Shape: (n_recipients, 1)
+    pass_length = np.hypot(pass_vector_x, pass_vector_y)  # Shape: (n_recipients, 1)
+    
+    # Avoid division by zero for zero-length passes
+    pass_length = np.where(pass_length == 0.0, 1e-8, pass_length)
+    
+    # Unit pass vectors
+    pass_unit_vector_x = pass_vector_x / pass_length   # Shape: (n_recipients, 1)
+    pass_unit_vector_y = pass_vector_y / pass_length   # Shape: (n_recipients, 1)
+    
+    # Player vectors
+    player_vector_x = player_x - start_x   # Shape: (1, n_defenders)
+    player_vector_y = player_y - start_y   # Shape: (1, n_defenders)
+    
+    # Projection lengths
+    projection_length = np.matmul(pass_unit_vector_x, player_vector_x) + np.matmul(pass_unit_vector_y, player_vector_y)  # Shape: (n_recipients, n_defenders)
+    projection_length = np.clip(projection_length, 0.0, pass_length)  # Ensure values are between 0 and pass_length
+
+    # Perpendicular distances
+    perpendicular_vector_x = player_vector_x - projection_length * pass_unit_vector_x
+    perpendicular_vector_y = player_vector_y - projection_length * pass_unit_vector_y
+    perpendicular_distance = np.hypot(perpendicular_vector_x, perpendicular_vector_y)  # Shape: (n_recipients, n_defenders)
+    
+    # Triangle width at projection point
+    half_width =  defender_speed * (projection_length / ball_speed)
+    
+    # Responsibility scores
+    with np.errstate(divide='ignore', invalid='ignore'):
+        responsibility_score = np.where(
+            (perpendicular_distance <= half_width) & (projection_length <= pass_length),
+            1.0 - (perpendicular_distance / half_width),
+            0.0
+        )
+        responsibility_score = np.nan_to_num(responsibility_score)
+
+    return responsibility_score  # Shape: (n_recipients, n_defenders)
+
+def passers_expected_threat_vectorized(
+    defender_x, defender_y, defender_id, passer_loc,
+    recipients, defenders
+):
+    # Update the defender's position
+    defenders[defender_id]['location'] = (defender_x, defender_y)
+    
+    # Extract positions
+    passer_x, passer_y = passer_loc
+    recipient_ids = np.array(list(recipients.keys()))
+    recipient_coords = np.array([recipients[rid]['location'] for rid in recipient_ids])
+    recipient_x = recipient_coords[:, 0]  # Shape: (n_recipients,)
+    recipient_y = recipient_coords[:, 1]
+    recipient_threats = np.array([recipients[rid]['threat_of_pass'] for rid in recipient_ids])  # Shape: (n_recipients,)
+    
+    defender_coords = np.array([defenders[did]['location'] for did in defenders])
+    defender_x_arr = defender_coords[:, 0]  # Shape: (n_defenders,)
+    defender_y_arr = defender_coords[:, 1]
+    
+    # Compute responsibility scores
+    responsibility_scores = responsibility_vectorized(
+        passer_x, passer_y,
+        recipient_x[:, np.newaxis], recipient_y[:, np.newaxis],
+        defender_x_arr[np.newaxis, :], defender_y_arr[np.newaxis, :]
+    )  # Shape: (n_recipients, n_defenders)
+
+    # Compute probability of success for each recipient
+    prob_success = np.prod(1.0 - responsibility_scores, axis=1)  # Shape: (n_recipients,)
+
+    # Compute expected threats
+    expected_threats = recipient_threats * prob_success  # Shape: (n_recipients,)
+    
+    # Create a dictionary mapping recipient IDs to expected threats
+    expected_threat_dict = dict(zip(recipient_ids, expected_threats))
+    
+    return expected_threat_dict
+
+def retrieve_player_positions(data, frame_id):
+    frame_data = data[data['frame'] == frame_id]
+
+    # Passer information
+    passer_id = frame_data['player.id.skillcorner'].values[0]
+    passer_loc = frame_data.loc[frame_data['tracking.object_id'] == passer_id, ['tracking.x', 'tracking.y']].values[0]
+    passer_location = tuple(passer_loc)
+
+    # Play direction
+    play_direction = frame_data['play_direction'].values[0]
+
+    # Recipients information
+    recipients_df = frame_data[frame_data['tracking.is_teammate'] & ~frame_data['tracking.is_self']]
+    recipients_info = {
+        row['tracking.object_id']: {
+            'location': (row['tracking.x'], row['tracking.y'])
+        }
+        for _, row in recipients_df.iterrows()
+    }
+
+    # Defenders information
+    defenders_df = frame_data[frame_data['tracking.is_opponent']]
+    defenders_info = {
+        row['tracking.object_id']: {
+            'location': (row['tracking.x'], row['tracking.y'])
+        }
+        for _, row in defenders_df.iterrows()
+    }
+    
+    return passer_location, recipients_info, defenders_info, play_direction
+
+def create_xt_func_vectorized(defender_id, passes_df, frame_id, threat_map):
+    passer_location, recipients_info, defenders_info, play_direction = retrieve_player_positions(passes_df, frame_id)
+    
+    for id, recipient in recipients_info.items():
+        recipient_location = recipient['location']
+        threat = threat_map.get_dxt(
+            *passer_location,
+            *recipient_location,
+            play_direction
+        )
+        recipients_info[id]['threat_of_pass'] = threat
+
+    def xt_func(x, y):
+        return passers_expected_threat_vectorized(
+            x, y, defender_id, passer_location, recipients_info, defenders_info
+        )
+
+    return xt_func
+
 def threat_aggregator(mode='softmax', k=3, temp=1, only_positive=False):
     if mode == 'max':
         return lambda x: max(x.values())
