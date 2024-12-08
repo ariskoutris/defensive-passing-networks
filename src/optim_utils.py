@@ -87,10 +87,8 @@ def responsibility(start_x, start_y, end_x, end_y, player_x, player_y, ball_spee
 
     return responsibility_score
 
-def passers_expected_threat(defender_x, defender_y, defender_id, passer_loc, recipients, defenders):
+def passers_expected_threat(passer_loc, recipients, defenders):
     
-    defenders.loc[defenders['tracking.object_id'] == defender_id, ['tracking.x', 'tracking.y']] = [defender_x, defender_y]
-
     expected_threat_dict = {}
     for _, recipient in recipients.iterrows():
         threat_of_pass = recipient['threat_of_pass']
@@ -120,7 +118,8 @@ def create_xt_func(defender_id, data, frame_id, threat_map):
     recipients['threat_of_pass'] = threats
     
     def xt_func(x,y):
-        return passers_expected_threat(x, y, defender_id, passer_location, recipients, defenders)
+        defenders.loc[defenders['tracking.object_id'] == defender_id, ['tracking.x', 'tracking.y']] = [x, y]
+        return passers_expected_threat(passer_location, recipients, defenders)
     
     return xt_func
 
@@ -166,12 +165,10 @@ def responsibility_vectorized(start_x, start_y, end_x, end_y, player_x, player_y
     return responsibility_score  # Shape: (n_recipients, n_defenders)
 
 def passers_expected_threat_vectorized(
-    defender_x, defender_y, defender_id, passer_loc,
+    passer_loc,
     recipients, defenders
 ):
-    # Update the defender's position
-    defenders[defender_id]['location'] = (defender_x, defender_y)
-    
+
     # Extract positions
     passer_x, passer_y = passer_loc
     recipient_ids = np.array(list(recipients.keys()))
@@ -246,8 +243,29 @@ def create_xt_func_vectorized(defender_id, passes_df, frame_id, threat_map):
         recipients_info[id]['threat_of_pass'] = threat
 
     def xt_func(x, y):
+        defenders_info[defender_id]['location'] = (x, y)
         return passers_expected_threat_vectorized(
-            x, y, defender_id, passer_location, recipients_info, defenders_info
+            passer_location, recipients_info, defenders_info
+        )
+
+    return xt_func
+
+def create_joint_xt_func_vectorized(defender_id, passes_df, frame_id, threat_map):
+    passer_location, recipients_info, defenders_info, play_direction = retrieve_player_positions(passes_df, frame_id)
+    
+    for id, recipient in recipients_info.items():
+        recipient_location = recipient['location']
+        threat = threat_map.get_dxt(
+            *passer_location,
+            *recipient_location,
+            play_direction
+        )
+        recipients_info[id]['threat_of_pass'] = threat
+
+    def xt_func(defender_locations):
+        defenders_info[defender_id]['location'] = defender_locations[defender_id]
+        return passers_expected_threat_vectorized(
+            passer_location, recipients_info, defenders_info
         )
 
     return xt_func
@@ -354,7 +372,7 @@ def optimization_report(opt_func, x_def, y_def, x_opt, y_opt):
     return results
     
 def get_defender_passes(passes_df, defender_id, offset=0):
-    defender_passes = passes_df[passes_df['tracking.object_id'] == defender_id]
+    defender_passes = passes_df[(passes_df['tracking.object_id'] == defender_id) & (passes_df['tracking.is_opponent'])]
 
     mask_lr = defender_passes['tracking.x'] >= (defender_passes['location.x'] - offset)
     mask_lr = mask_lr & (defender_passes['play_direction'] == 'BOTTOM_TO_TOP')
@@ -367,7 +385,7 @@ def get_defender_passes(passes_df, defender_id, offset=0):
     return frame_ids
 
 def optimize_defender_pass(passes_df, frame_id, defender_id, threat_map, pitch_length, pitch_width, radius=3, grid_res=20, mode='softmax', temp=0.03):
-    threat_func = create_xt_func(defender_id, passes_df, frame_id, threat_map)
+    threat_func = create_xt_func_vectorized(defender_id, passes_df, frame_id, threat_map)
     threat_agg = threat_aggregator(mode=mode, temp=temp)
     opt_func = lambda x, y: -threat_agg(threat_func(x, y))
     
