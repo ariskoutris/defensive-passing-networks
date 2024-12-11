@@ -404,3 +404,38 @@ def optimize_defender(passes_df, defender_id, threat_map, pitch_length, pitch_wi
     pass_results = pd.DataFrame.from_dict(results, orient='index')
     agg_results = pass_results[['improvement', 'improvement_perc', 'distance']].agg(['mean', 'median', 'std'])
     return pass_results, agg_results
+
+def pass_success_prob(
+    passer_loc,
+    recipients, defenders
+):
+
+    # Extract positions
+    passer_x, passer_y = passer_loc
+    recipient_ids = np.array(list(recipients.keys()))
+    recipient_coords = np.array([recipients[rid]['location'] for rid in recipient_ids])
+    recipient_x = recipient_coords[:, 0]  # Shape: (n_recipients,)
+    recipient_y = recipient_coords[:, 1]
+
+    defender_coords = np.array([defenders[did]['location'] for did in defenders])
+    defender_x_arr = defender_coords[:, 0]  # Shape: (n_defenders,)
+    defender_y_arr = defender_coords[:, 1]
+    
+    # Compute responsibility scores
+    responsibility_scores = responsibility_vectorized(
+        passer_x, passer_y,
+        recipient_x[:, np.newaxis], recipient_y[:, np.newaxis],
+        defender_x_arr[np.newaxis, :], defender_y_arr[np.newaxis, :]
+    )  # Shape: (n_recipients, n_defenders)
+
+    # Compute probability of success for each recipient
+    prob_success = np.prod(1.0 - responsibility_scores, axis=1)  # Shape: (n_recipients,)
+    
+    res = {
+        rid: {
+            'success_prob': prob_success[i]
+        }
+        for i, rid in enumerate(recipient_ids)
+    }
+    
+    return res
